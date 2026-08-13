@@ -1,0 +1,94 @@
+section,type,check,requirement,classification,description
+SDK Integration,static,SDK script tag,1.1,requirement,/sdk.js in head
+SDK Integration,static,YaGames.init(),1.19.1,requirement,SDK initialization
+Lifecycle API,static,LoadingAPI.ready(),1.19.2,requirement,Called when game loaded
+Sound Management,static,visibilitychange,1.3,requirement,Mute when tab hidden
+Sound Management,static,AudioContext suspend/resume,,heuristic,AC.suspend() + AC.resume()
+Ads — Interstitial,static,showFullscreenAdv,,heuristic,Interstitial present
+Ads — Interstitial,static,onOpen callback,,heuristic,Pause+mute on ad
+Ads — Interstitial,static,onClose callback,,heuristic,Resume after ad
+Ads — Interstitial,static,onError callback,,heuristic,Error handling
+Ads — Rewarded,static,showRewardedVideo,,heuristic,Rewarded present
+Ads — Rewarded,static,onRewarded callback,,heuristic,Grant reward
+Ads — Rewarded,static,onOpen callback,,heuristic,Pause+mute
+Ads — Rewarded,static,onClose callback,,heuristic,Resume
+Cloud Saves,static,player.setData(),,heuristic,Cloud save
+Cloud Saves,static,player.getData(),,heuristic,Cloud load
+In-App Purchases,static,getPayments(),,heuristic,Payments init
+In-App Purchases,static,consumePurchase(),,heuristic,Consume after grant
+In-App Purchases,static,getPurchases(),,heuristic,Check pending at start
+In-App Purchases,static,getCatalog() called (REQ-1.13.2),1.13.2,requirement,Catalog provides priceCurrencyCode + getPriceCurrencyImage — required when game has IAP
+In-App Purchases,static,No hardcoded ₽/$/€ near numbers (REQ-1.13.2),1.13.2,requirement,"When IAP is present, prices must use SDK currency methods (getPriceCurrencyCode/getPriceCurrencyImage)"
+Localization (I18N),runtime,environment.i18n.lang,2.14,requirement,Runtime-confirmed SDK language read; source-only evidence becomes NOT VERIFIED.
+Localization (I18N),static,Yandex lang fallback,,heuristic,Automatically proves be/kk/uk/uz → ru via resolver contract or common source patterns; otherwise NOT VERIFIED.
+UX & Mobile,static,Context menu disabled,1.6.2.7,requirement,п.1.6.2.7 — right-click prevented
+UX & Mobile,static,Text selection disabled,1.6.2.7,requirement,п.1.6.2.7 — user-select or selectstart
+UX & Mobile,static,touch-action configured,,heuristic,touch-action: none/manipulation on game area
+UX & Mobile,static,Viewport meta tag,,heuristic,Mobile viewport with user-scalable=no
+UX & Mobile,static,Overflow hidden on body/html,1.10.2,requirement,п.1.10.2 — prevent page scroll
+UX & Mobile,static,overscroll-behavior,1.10.2,requirement,п.1.10.2 — prevent swipe-to-refresh / bounce
+UX & Mobile,static,-webkit-touch-callout: none,,heuristic,Prevent iOS callout menu on long press
+Common Rejections,static,Scroll prevention (п.1.10.2),1.10.2,requirement,No browser scroll during gameplay
+Common Rejections,static,Swipe-to-refresh blocked (iOS/Android),1.10.2,requirement,п.1.10.2 — overscroll-behavior: none/contain
+Common Rejections,static,GameReady timing (п.1.19),1.19,requirement,"LoadingAPI.ready() called AFTER full load, not in SDK init"
+Common Rejections,static,I18N auto-detection (п.2.14),2.14,requirement,"Language from SDK, not hardcoded"
+Common Rejections,static,Sound paused during ads (п.4.7),4.7,requirement,AudioContext suspend in ad onOpen callback
+Common Rejections,static,Game paused during ads (п.4.7),4.7,requirement,Gameplay stops when ad is shown
+Common Rejections,static,Selection/callout in game area (п.1.6.2.7),1.6.2.7,requirement,No text selection or context menu on interaction
+Dangerous Patterns,static,No alert(),,heuristic,alert() forbidden
+Dangerous Patterns,static,No confirm(),,heuristic,confirm() forbidden
+Dangerous Patterns,static,No prompt(),,heuristic,prompt() forbidden
+Dangerous Patterns,static,No document.write(),,heuristic,document.write forbidden
+Dangerous Patterns,static,No eval(),,heuristic,eval() dangerous
+Archive,static,No Yandex S3 URLs,1.7,requirement,Must use relative paths
+Quality,static,No WebGL notice (п.1.6.1.7),1.6.1.7,requirement,"No ""WebGL not supported/enable WebGL"" prompt shown to user"
+Quality,static,Video has no system controls (п.1.6.1.6/1.6.2.5),1.6.1.6,requirement,<video> must not show the native player UI (use controlsList/no controls attr)
+Quality,static,"Music via Web Audio, not <audio>/new Audio (п.1.6.1.6/1.6.2.5)",1.6.1.6,requirement,Background music played through HTMLAudioElement (new Audio()/<audio>) surfaces in the OS media player (desktop) and the mobile notification shade. Use Web Audio API (AudioContext 
+Quality,static,SDK language before URL fallback,,heuristic,"Яндекс всегда добавляет &lang= в URL — если detectLang проверяет URL-параметр раньше SDK, чтение environment.i18n.lang становится мёртвым кодом."
+Quality,static,Language detected before the game is interactive (п.2.14/1.19),2.14,requirement,detectLang()/ready() must run as part of startup BEFORE input handlers are bound / the board is built — not in a parallel init().then() while DOMContentLoaded already made the game
+Quality,static,Keyboard auto-shows on input (п.1.6.1.2),1.6.1.2,requirement,A text <input> must raise the mobile keyboard on tap (native behavior). Flag only if the keyboard is actively suppressed.
+Quality,static,No URL-based gating (п.1.18),1.18,requirement,Game must not restrict itself by location.host/href
+Quality,static,Fullscreen on mobile (п.1.6.1.1),1.6.1.1,requirement,"Game should run fullscreen during play on mobile — viewport-fit=cover + 100vh/100% root, or a requestFullscreen call."
+Quality,static,Desktop field aspect ≤ 2:1 (п.1.6.2.2),1.6.2.2,requirement,"On desktop the long side of the active field must not exceed 2× the short side. A canvas locked to an extreme ratio fails. (Runtime Probe F measures the live ratio, this flags a ha"
+Quality,static,Нет debug-инструментов в UI (п.1.15),1.15,requirement,"Поля сида, выбор поведения ИИ, скорость хода, «Заново», панели замеров в релизной сборке = игра выглядит незавершённой."
+Quality,static,Ввод закрыт до ready() (REQ-1.19),1.19,requirement,"Игра не должна принимать клики/клавиши, пока не вызван LoadingAPI.ready(): модератор кликами проскакивает загрузку → отказ 1.19."
+Quality,static,"Keyboard via e.code, not e.key (ru-раскладка)",,heuristic,"Управление через e.key===""w"" ломается в русской раскладке (там ""ц""). Движение — только e.code===""KeyW"" (физическая клавиша)."
+Quality,static,No OS-shortcut key handlers (п.1.6.2.6),1.6.2.6,requirement,Desktop games must not bind Ctrl/Alt/Meta+key combos that collide with OS/browser shortcuts.
+Quality,static,"No flat-black letterbox void (десктоп, 1.6.2.1)",,heuristic,"Игра-квадрат в плоской черноте на широком экране = непродакшн. Фон должен быть атмосферным (градиент/паттерн/арт), либо ширина занята панелями."
+Quality,static,"Game looks finished, not WIP (п.1.15)",1.15,requirement,"No ""in development / coming soon / TODO / placeholder"" text visible in the UI."
+Quality,static,No imitation ad blocks (п.1.16),1.16,requirement,"Game must not fake Yandex ad blocks (custom fullscreen ""interstitial""/""RV"" UI with its own buttons)."
+Quality,static,No YouTube/external video player (п.3.9),3.9,requirement,Video must not be embedded via a player that can navigate to external sites (YouTube iframe forbidden).
+Quality,static,Ad orientation matches game (п.4.3),4.3,requirement,Declared ad orientation should match the game orientation (no portrait ad in a landscape-only game).
+Quality,static,Sound toggle present (реком. 6.2),6.2,recommendation,"Recommended (07.2026): a way to mute/toggle sound. Not moderated, but affects quality/rating (2.13: rating ≤30 for 3 weeks → unpublished)."
+Quality,static,Pause available (реком. 6.3),6.3,recommendation,Recommended (07.2026): a pause. N/A for idle/turn-based without real-time pressure.
+Quality,static,"Title without the word ""игра/game"" (реком. 6.5)",,heuristic,Recommended (07.2026): lakoничное название без слова «игра/game».
+Quality,static,No useless exit button (реком. 6.7),6.7,recommendation,"Recommended (07.2026): no non-functional buttons — an ""exit/quit"" button is meaningless in a web game."
+Quality,static,No profanity in UI text (п.8.2.4),8.2.4,requirement,Visible text must not contain profanity in any language.
+Quality,static,Canvas resizes on orientation change (п.1.6.1.3/1.10.1),1.6.1.3,requirement,"A <canvas>/WebGL game must re-fit on orientationchange + fullscreenchange, not only window resize — else it deforms / clips on mobile rotate & fullscreen-exit"
+Quality,static,ready() not tuned to pass the checker (integrity),,heuristic,"No magic delay / debugcheck-targeting right before ready() — ready() must reflect real interactivity, not a tuned timer"
+Quality,static,Progress saved before ad (п.4.2),4.2,requirement,player.setData/save called near ad open (progress survives ad reload)
+Quality,static,No external ad networks,4.1,requirement,Only Yandex SDK ads (checks game source only)
+Leaderboard,static,Leaderboard API (current),,heuristic,ysdk.leaderboards direct access
+Leaderboard,static,setScore() call,,heuristic,"ysdk.leaderboards.setScore(name, score)"
+Leaderboard,static,getEntries() call,,heuristic,"ysdk.leaderboards.getEntries(name, opts)"
+Leaderboard,static,Leaderboard name [a-zA-Z0-9],,heuristic,"Name without _ or - (e.g. ""killsbest"")"
+Timing Verification,runtime,GameReady after fonts,1.19.2,heuristic,п.1.19 — ready() AFTER fonts loaded
+Timing Verification,runtime,GameReady after first paint,1.19.2,heuristic,п.1.19 — ready() AFTER UI visible
+Timing Verification,runtime,GameReady not too late,1.19.2,requirement,LoadingAPI.ready() is observed within the 90-second moderation window.
+Timing Verification,runtime,UI not interactive before SDK,1.19.1,heuristic,п.2.14 — no clickable content before SDK init
+Timing Verification,runtime,Language detected before UI,2.14,requirement,п.2.14 — detectLang() before interactive content
+Visual Overflow (п.1.10.1),runtime,No elements overflow viewport,1.10.1,requirement,п.1.10.1 — nothing outside screen
+Visual Overflow (п.1.10.1),runtime,Canvas fills screen,1.6.2.1,heuristic,п.1.6.2.1 — game stretches to edges
+Visual Overflow (п.1.10.1),runtime,Touch targets >= 44px,1.8,heuristic,"44px is a usability heuristic, not a literal Yandex threshold."
+Language Check (Runtime),runtime,SDK language read before Game Ready,2.14,requirement,Runtime ordering: language read occurs during startup before LoadingAPI.ready().
+Language Check (Runtime),runtime,No untranslated Cyrillic on non-RU,8.2.3,heuristic,п.8.2.3 — no mixed language
+Language Check (Runtime),runtime,Canvas text reminder,,heuristic,Canvas drawText not scannable by DOM
+Scroll/Refresh (Runtime),runtime,No body scroll,1.10.2,requirement,п.1.10.2 — page should not scroll
+Scroll/Refresh (Runtime),runtime,Document not scrollable,1.10.2,requirement,Content fits viewport
+Scroll/Refresh (Runtime),runtime,touch-action blocks iOS refresh,1.10.2,requirement,touch-action:none on html/body prevents swipe gestures
+Scroll/Refresh (Runtime),runtime,contextmenu actually blocked,1.6.2.7,requirement,Right-click preventDefault covers entire page
+Ad Context (Runtime),runtime,Interstitial placement context (REQ-4.4),4.4,requirement,Gesture-triggered ads should start within 0.33s; long real-time levels may use timer ads with warning + pause
+Ad Context (v2.4 Runtime),runtime,All rewarded videos follow user gesture (REQ-4.5),4.5,requirement,showRewardedVideo must be user-initiated
+Runtime Detection,runtime,SDK loaded,1.1,requirement,YaGames or ysdk available at runtime
+Runtime Detection,runtime,SDK initialized,1.19.1,requirement,YaGames.init() was called (or dev mode)
+Runtime Detection,runtime,No console errors,6.4,recommendation,Clean console

@@ -1,0 +1,116 @@
+{
+  "mode": "before",
+  "summary": {
+    "pass": 45,
+    "fail": 3,
+    "warn": 12,
+    "notVerified": 10,
+    "score": "75%"
+  },
+  "warnings": [
+    {
+      "name": "Context menu disabled REQ 1.6.2.7",
+      "detail": "Detected risk — review this item"
+    },
+    {
+      "name": "overscroll-behavior REQ 1.10.2",
+      "detail": "Detected risk — review this item"
+    },
+    {
+      "name": "-webkit-touch-callout: none HEURISTIC",
+      "detail": "Detected risk — review this item"
+    },
+    {
+      "name": "Swipe-to-refresh blocked (iOS/Android) REQ 1.10.2",
+      "detail": "touchmove preventDefault found but overscroll-behavior:none is more reliable"
+    },
+    {
+      "name": "GameReady timing (п.1.19) REQ 1.19",
+      "detail": "LoadingAPI.ready() may be called too early — ensure it runs AFTER game is playable"
+    },
+    {
+      "name": "I18N auto-detection (п.2.14) REQ 2.14",
+      "detail": "Must use ysdk.environment.i18n.lang for auto-detection"
+    },
+    {
+      "name": "Selection/callout in game area (п.1.6.2.7) REQ 1.6.2.7",
+      "detail": "Only partial protection — add user-select:none + selectstart + contextmenu preventDefault"
+    },
+    {
+      "name": "Ввод закрыт до ready() (REQ-1.19) REQ 1.19",
+      "detail": "Обработчики ввода вешаются без видимого гейта (inputEnabled/isReady и т.п.). Проверь рантайм-строку «ВВОД ПРИНЯТ ДО ready()» в консоли: если клик проходит раньше ready(), это отказ по 1.19."
+    },
+    {
+      "name": "Sound toggle present (реком. 6.2) REC",
+      "detail": "Игра со звуком, но не видно переключателя звука (рекомендация 6.2). Не блокер, но качество влияет на рейтинг, а рейтинг ≤30 три недели = снятие (2.13)."
+    },
+    {
+      "name": "Canvas resizes on orientation change (п.1.6.1.3/1.10.1) REQ 1.6.1.3",
+      "detail": "Canvas game binds window \"resize\" but not orientationchange/fullscreenchange. On mobile, rotating or exiting fullscreen may not fire resize in time → the scene clips (п.1.10.1) or deforms (п.1.6.1.3). Add: window.addEventListener(\"orientationchange\", resize) and a fullscreenchange handler (or a ResizeObserver on the canvas container)."
+    },
+    {
+      "name": "Touch targets >= 44px REQ 1.8",
+      "detail": "Some buttons may be too small — check RT._smallButtons"
+    },
+    {
+      "name": "No body scroll REQ 1.10.2",
+      "detail": "Partial scroll protection — add overscroll-behavior:none"
+    }
+  ],
+  "notVerified": [
+    {
+      "name": "environment.i18n.lang REQ 2.14",
+      "detail": "NOT VERIFIED — Waiting for SDK initialization/runtime language read"
+    },
+    {
+      "name": "Yandex lang fallback HEURISTIC",
+      "detail": "NOT VERIFIED — No explicit fallback resolver could be proven from source. This is not evidence of a defect."
+    },
+    {
+      "name": "GameReady after fonts REQ 1.19",
+      "detail": "NOT VERIFIED — LoadingAPI.ready() has not been observed yet"
+    },
+    {
+      "name": "GameReady after first paint REQ 1.19",
+      "detail": "NOT VERIFIED — Need both first-paint and LoadingAPI.ready() runtime timestamps"
+    },
+    {
+      "name": "GameReady not too late REQ 1.19.2",
+      "detail": "NOT VERIFIED — LoadingAPI.ready() has not been observed yet"
+    },
+    {
+      "name": "UI not interactive before SDK REQ 2.14",
+      "detail": "NOT VERIFIED — SDK initialization timestamp is unavailable"
+    },
+    {
+      "name": "Language detected before UI REQ 2.14",
+      "detail": "NOT VERIFIED — No confirmed SDK language read timestamp yet"
+    },
+    {
+      "name": "SDK language read before Game Ready REQ 2.14",
+      "detail": "NOT VERIFIED — No confirmed runtime language read yet"
+    },
+    {
+      "name": "No untranslated Cyrillic on non-RU REQ 8.2.3",
+      "detail": "NOT VERIFIED — Active SDK language is unknown; DOM translation scan cannot be interpreted"
+    },
+    {
+      "name": "Canvas text reminder HEURISTIC",
+      "detail": "NOT VERIFIED — Canvas text is not visible to DOM scanning; verify rendered text for declared languages"
+    }
+  ],
+  "failures": [
+    {
+      "name": "YaGames.init() REQ 1.19.1",
+      "detail": "Not found!"
+    },
+    {
+      "name": "LoadingAPI.ready() REQ 1.19.2",
+      "detail": "Not found!"
+    },
+    {
+      "name": "contextmenu actually blocked HEURISTIC",
+      "detail": "contextmenu NOT blocked on entire page! Handler may only cover game area. Fix: document.addEventListener(\"contextmenu\",e=>e.preventDefault())"
+    }
+  ]
+}

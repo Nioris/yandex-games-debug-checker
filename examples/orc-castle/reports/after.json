@@ -1,0 +1,22 @@
+{
+  "mode": "after",
+  "summary": {
+    "pass": 70,
+    "fail": 0,
+    "warn": 0,
+    "notVerified": 2,
+    "score": "100%"
+  },
+  "warnings": [],
+  "notVerified": [
+    {
+      "name": "GameReady after first paint REQ 1.19",
+      "detail": "NOT VERIFIED — Need both first-paint and LoadingAPI.ready() runtime timestamps"
+    },
+    {
+      "name": "Canvas text reminder HEURISTIC",
+      "detail": "NOT VERIFIED — Canvas text is not visible to DOM scanning; verify rendered text for declared languages"
+    }
+  ],
+  "failures": []
+}
