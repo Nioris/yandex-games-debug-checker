@@ -4,10 +4,10 @@ import path from 'node:path';
 const debugPort = Number(process.argv[2]);
 const root = process.argv[3];
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const deadline = Date.now() + 10000;
+const targetDeadline = Date.now() + 10000;
 
 let page;
-while (Date.now() < deadline) {
+while (Date.now() < targetDeadline) {
   try {
     const res = await fetch(`http://127.0.0.1:${debugPort}/json/list`);
     const list = await res.json();
@@ -82,7 +82,8 @@ const integration = `(async function(){
 })()`;
 await evaluate(integration, true);
 
-while (Date.now() < deadline) {
+const panelDeadline = Date.now() + 10000;
+while (Date.now() < panelDeadline) {
   if (await evaluate("!!document.querySelector('.dc-sum')")) break;
   await sleep(100);
 }
