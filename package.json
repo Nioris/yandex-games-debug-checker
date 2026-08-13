@@ -1,0 +1,14 @@
+{
+  "name": "yandex-games-debug-checker",
+  "version": "1.1.0",
+  "private": true,
+  "description": "Unofficial pre-submission and runtime checker for Yandex Games",
+  "scripts": {
+    "test": "node --check debugcheck.js && node tests/static-checks.mjs && node tests/example-static.mjs && node scripts/audit.mjs",
+    "test:browser": "bash tests/browser-smoke.sh",
+    "test:example:browser": "bash tests/orc-castle-smoke.sh",
+    "build:pages": "node scripts/build-pages.mjs",
+    "audit": "npm test && bash tests/browser-smoke.sh && bash tests/orc-castle-smoke.sh && node scripts/build-pages.mjs"
+  },
+  "license": "MIT"
+}
