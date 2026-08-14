@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions, ideas and rule discussions
+    url: https://github.com/Nioris/yandex-games-debug-checker/discussions
+    about: Ask for help, suggest a check, discuss rule interpretation, or share results.
+  - name: Security issue
+    url: https://github.com/Nioris/yandex-games-debug-checker/blob/main/SECURITY.md
+    about: Please follow the private-reporting guidance in SECURITY.md instead of opening a public issue.
