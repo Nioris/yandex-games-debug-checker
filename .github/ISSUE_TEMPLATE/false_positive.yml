@@ -1,0 +1,83 @@
+name: False positive / incorrect check
+description: Report a reproducible checker result that appears incorrect
+title: "[False positive]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form when a specific checker rule produces a reproducible result that appears incorrect. If you are not yet sure whether the rule or interpretation is wrong, start with GitHub Discussions.
+
+        The checker is unofficial. When the report is about interpretation of a Yandex Games requirement, link the relevant official documentation if possible.
+
+  - type: input
+    id: version
+    attributes:
+      label: Checker version
+      placeholder: v1.1.0
+    validations:
+      required: true
+
+  - type: input
+    id: check
+    attributes:
+      label: Check ID and title
+      placeholder: REQ-4.4 / Ad without gesture
+    validations:
+      required: true
+
+  - type: dropdown
+    id: result
+    attributes:
+      label: Result produced by the checker
+      options:
+        - FAIL
+        - WARN
+        - NOT VERIFIED
+        - PASS
+        - N/A
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why does this result appear incorrect?
+      description: Explain what the game actually does and why the checker evidence does not match it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: minimal
+    attributes:
+      label: Minimal reproduction or source snippet
+      description: Include the smallest example that demonstrates the result. Remove secrets and private data.
+    validations:
+      required: true
+
+  - type: input
+    id: docs
+    attributes:
+      label: Relevant official Yandex Games documentation
+      description: Optional but strongly recommended for requirement-interpretation disputes.
+      placeholder: https://yandex.ru/dev/games/doc/...
+
+  - type: input
+    id: environment
+    attributes:
+      label: Browser / game technology
+      placeholder: Chrome 140 / Unity WebGL
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing Issues and Discussions for this check/result.
+          required: true
+        - label: I can reproduce this result with the checker version listed above.
+          required: true
+        - label: This report contains no private credentials, API keys, or player data.
+          required: true
