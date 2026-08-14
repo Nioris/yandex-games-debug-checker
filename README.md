@@ -48,16 +48,18 @@ YGDebugChecker.refresh();
 
 Перед production-релизом удалите `<script src="debugcheck.js"></script>` и сам файл из релизной сборки.
 
-## Живой пример: Orc Castle
+## Демонстрационный пример: Orc Castle
 
-В [`examples/orc-castle`](examples/orc-castle/) лежит одна Canvas-игра в вариантах **before / after**. Browser audit запускает оба варианта в Chromium:
+В [`examples/orc-castle`](examples/orc-castle/) лежит специально подготовленная небольшая Canvas-игра в вариантах **before / after**. Это демонстрационный fixture, созданный для наглядной проверки checker'а, а не опубликованная production-игра и не результат аудита случайно выбранного проекта.
+
+Цифры ниже не захардкожены: browser audit действительно запускает оба варианта в Chromium, а PASS / FAIL / WARN / NOT VERIFIED формирует сам checker.
 
 | Вариант | PASS | FAIL | WARN | N/V | SCORE |
 |---|---:|---:|---:|---:|---:|
 | Before | 45 | 3 | 12 | 10 | 75% |
 | After | 70 | 0 | 0 | 2 | 100% |
 
-`after` показывает корректный порядок `SDK → checker → game`, startup через `YaGames.init()`, чтение `environment.i18n.lang`, input gate, Game Ready, optional Gameplay API lifecycle, mobile hardening и sound toggle. В `after` нет WARN/FAIL. Два пункта остаются `NOT VERIFIED`: timing первого paint в headless-тесте и Canvas-текст, который нельзя доказать DOM-сканированием. Они не маскируются под предупреждения.
+`before` намеренно содержит типовые проблемы интеграции, которые должен обнаружить checker. `after` показывает исправленный вариант: корректный порядок `SDK → checker → game`, startup через `YaGames.init()`, чтение `environment.i18n.lang`, input gate, Game Ready, optional Gameplay API lifecycle, mobile hardening и sound toggle. В `after` нет WARN/FAIL. Два пункта остаются `NOT VERIFIED`: timing первого paint в headless-тесте и Canvas-текст, который нельзя доказать DOM-сканированием. Они не маскируются под предупреждения.
 
 Для GitHub Pages есть отдельная mock-сборка. Production-пример [`examples/orc-castle/after/index.html`](examples/orc-castle/after/index.html) mock SDK не содержит.
 
