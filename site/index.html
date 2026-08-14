@@ -10,6 +10,7 @@
 main{width:min(920px,100%)}h1{font-size:clamp(30px,6vw,58px);line-height:1;margin:0 0 16px}p{color:#aeb8c7;line-height:1.6}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin:28px 0}.card{border:1px solid #2a3444;border-radius:16px;padding:22px;background:#111824}.card h2{margin-top:0}.before{border-color:#744149}.after{border-color:#34734d}
 a{display:inline-block;color:#fff;text-decoration:none;background:#2a67d5;border-radius:10px;padding:11px 16px;font-weight:700}.after a{background:#24834e}.meta{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px;color:#8995a8}.note{border-left:3px solid #d3a53f;padding:8px 14px;background:#18170f}
+.community{margin-top:28px;border:1px solid #2a3444;border-radius:16px;padding:22px;background:#111824}.community h2{margin:0 0 8px}.community-links{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.community-links a{background:#253148}.community-links a.primary{background:#2a67d5}
 </style>
 </head>
 <body>
@@ -31,6 +32,17 @@ a{display:inline-block;color:#fff;text-decoration:none;background:#2a67d5;border
     </section>
   </div>
   <p class="note"><b>Важно:</b> Pages-демо использует локальный mock SDK только для показа интеграции вне Яндекс Игр. Production-пример <code>after/index.html</code> использует официальный <code>/sdk.js</code>. Финальную проверку всегда выполняйте на черновике Яндекс Игр.</p>
+
+  <section class="community">
+    <h2>Обсуждение и обратная связь</h2>
+    <p>Вопросы, идеи новых проверок и спорные трактовки лучше обсуждать в Discussions. Для воспроизводимых багов и false positives есть отдельные формы Issues.</p>
+    <div class="community-links">
+      <a class="primary" href="https://github.com/Nioris/yandex-games-debug-checker/discussions">Discussions</a>
+      <a href="https://github.com/Nioris/yandex-games-debug-checker/issues/new/choose">Сообщить о баге / false positive</a>
+      <a href="https://github.com/Nioris/yandex-games-debug-checker/blob/main/CONTRIBUTING.md">Contributing</a>
+    </div>
+  </section>
+
   <p class="meta">Hotkey: Ctrl+Shift+2 × 3 · Public API: YGDebugChecker.open()</p>
 </main>
 </body>
