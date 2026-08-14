@@ -26,16 +26,18 @@ Refresh it with `YGDebugChecker.refresh()`.
 
 Remove the checker from the production build before release.
 
-## Live example: Orc Castle
+## Demonstration example: Orc Castle
 
-[`examples/orc-castle`](examples/orc-castle/) contains the same Canvas game in **before / after** states. The Chromium audit currently reports:
+[`examples/orc-castle`](examples/orc-castle/) contains a deliberately prepared small Canvas game in **before / after** states. It is a demonstration fixture designed to make checker behavior easy to inspect; it is not a published production game and not the result of auditing a randomly selected project.
+
+The numbers below are not hard-coded. The browser audit actually runs both variants in Chromium, and the checker itself produces the PASS / FAIL / WARN / NOT VERIFIED results.
 
 | Variant | PASS | FAIL | WARN | N/V | SCORE |
 |---|---:|---:|---:|---:|---:|
 | Before | 45 | 3 | 12 | 10 | 75% |
 | After | 70 | 0 | 0 | 2 | 100% |
 
-The corrected version demonstrates SDK initialization, startup language detection, an input gate, Game Ready, optional Gameplay API lifecycle markers, mobile hardening and a sound toggle. The corrected example has no WARN/FAIL results. Two items remain NOT VERIFIED: first-paint timing in the headless harness and Canvas-rendered text, which DOM scanning cannot prove.
+The `before` variant intentionally contains representative integration problems that the checker is expected to detect. The corrected `after` variant demonstrates SDK initialization, startup language detection, an input gate, Game Ready, optional Gameplay API lifecycle markers, mobile hardening and a sound toggle. The corrected example has no WARN/FAIL results. Two items remain NOT VERIFIED: first-paint timing in the headless harness and Canvas-rendered text, which DOM scanning cannot prove.
 
 GitHub Pages uses a separate mock-SDK fixture. The production example [`examples/orc-castle/after/index.html`](examples/orc-castle/after/index.html) does not include the mock.
 
