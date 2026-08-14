@@ -1,0 +1,90 @@
+name: Bug report
+description: Report a reproducible problem in Yandex Games Debug Checker
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a reproducible checker bug. For questions, ideas, or uncertain rule interpretation, please use GitHub Discussions first.
+
+        Do not include private production credentials, API keys, player data, or unpublished secrets.
+
+  - type: input
+    id: version
+    attributes:
+      label: Checker version
+      description: Example: v1.1.0
+      placeholder: v1.1.0
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and version
+      placeholder: Chrome 140 / Yandex Browser 25.x / Firefox ...
+    validations:
+      required: true
+
+  - type: input
+    id: technology
+    attributes:
+      label: Game technology
+      description: Plain JS, Phaser, Unity WebGL, Godot, custom engine, WASM, etc.
+      placeholder: Plain JavaScript + Canvas
+    validations:
+      required: true
+
+  - type: input
+    id: check
+    attributes:
+      label: Check ID or title
+      description: If the problem is tied to a specific checker rule, include its ID/title.
+      placeholder: REQ-1.19.2 / Game Ready timing
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the observed checker behavior and the result shown in the panel/report.
+      placeholder: The checker reports ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Provide the smallest reliable sequence that reproduces the problem.
+      placeholder: |
+        1. Load ...
+        2. Open the checker ...
+        3. Run refresh ...
+        4. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: The checker should ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: minimal
+    attributes:
+      label: Minimal source snippet or public reproduction
+      description: Prefer a minimal snippet or public repository/URL. Remove secrets and private data.
+      render: javascript
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing Issues and Discussions for the same problem.
+          required: true
+        - label: This report contains no private credentials, API keys, or player data.
+          required: true
