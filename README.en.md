@@ -6,6 +6,15 @@ The distribution is a single dependency-free `debugcheck.js` file. Load it after
 
 > This is an independent tool, not an official Yandex product. A PASS does not guarantee moderation approval. The official Yandex Games documentation remains the source of truth.
 
+## Community and feedback
+
+- 💬 **Questions, ideas, new-check proposals, and rule discussion:** [GitHub Discussions](https://github.com/Nioris/yandex-games-debug-checker/discussions)
+- 🐛 **Reproducible checker bug:** [Bug report](https://github.com/Nioris/yandex-games-debug-checker/issues/new/choose)
+- 🧪 **Reproducible false positive / incorrect check result:** [False positive / incorrect check](https://github.com/Nioris/yandex-games-debug-checker/issues/new/choose)
+- 🛠 **Want to contribute a fix:** see [`CONTRIBUTING.md`](CONTRIBUTING.md)
+
+If you are not sure whether a result is a checker defect or a rule-interpretation question, start in Discussions. Issues are intended for concrete reproducible problems.
+
 Public v1.1.0 contains 93 executable checks classified as **REQ** (linked to a published requirement), **REC** (published recommendation), or **HEURISTIC** (best-effort engineering signal).
 
 ## Quick start
@@ -74,7 +83,6 @@ npm run audit
 ## License
 
 MIT. Yandex and Yandex Games are trademarks of their respective owners. This repository is not affiliated with or endorsed by Yandex.
-
 
 ### PASS / FAIL / WARN / NOT VERIFIED
 
