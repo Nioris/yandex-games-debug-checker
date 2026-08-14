@@ -8,6 +8,15 @@
 
 [English README](README.en.md)
 
+## Сообщество и обратная связь
+
+- 💬 **Вопросы, идеи, предложения новых проверок и обсуждение правил:** [GitHub Discussions](https://github.com/Nioris/yandex-games-debug-checker/discussions)
+- 🐛 **Воспроизводимый баг checker'а:** [Bug report](https://github.com/Nioris/yandex-games-debug-checker/issues/new/choose)
+- 🧪 **Воспроизводимый false positive / некорректный результат проверки:** [False positive / incorrect check](https://github.com/Nioris/yandex-games-debug-checker/issues/new/choose)
+- 🛠 **Хотите прислать исправление:** см. [`CONTRIBUTING.md`](CONTRIBUTING.md)
+
+Если вы не уверены, является ли результат багом или вопросом трактовки правила, начните с Discussions. Issues предназначены для конкретных воспроизводимых проблем.
+
 ## Что проверяется
 
 Public v1.1.0 содержит 93 исполняемых проверок. Они разделены на три класса:
@@ -77,7 +86,6 @@ YGDebugChecker.refresh();
 ## Почему public-версия отличается от исходного внутреннего checker'а
 
 Первоначальная версия создавалась как внутренний инструмент конкретной студии. Перед публикацией из неё удалены проверки, завязанные на внутренние имена переменных, `setLang()`, screenshot tooling, локальные pre-submit отчёты и инструменты записи тестовых значений в лидерборды. Также исправлены несколько правил после сверки с актуальной документацией Яндекс Игр. Подробно: [`docs/audit-2026-08-11.md`](docs/audit-2026-08-11.md).
-
 
 ### PASS / FAIL / WARN / NOT VERIFIED
 
