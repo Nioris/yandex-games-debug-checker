@@ -1,0 +1,6 @@
+Постоянная рабочая папка:
+
+F:\ProjectForgeUniversal\yg-yandex-draft-harness
+
+Новые versioned-папки больше не создавать.
+Новые пакеты распаковывать поверх этой папки.
