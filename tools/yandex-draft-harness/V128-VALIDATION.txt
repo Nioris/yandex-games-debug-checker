@@ -1,0 +1,10 @@
+v1.2.8 upgrader node --check: PASS
+v1.2.8 upgrader self-test: PASS
+Harness self-test: PASS
+False 'SDK init → ready → gameplay' PASS removed: PASS
+stop without start -> NOT VERIFIED: PASS
+start before ready -> FAIL: PASS
+start after ready -> PASS path: PASS
+Latest 574662 replay: ready=2179.8, start=0, stop=2182.9 -> expected NOT VERIFIED
+Working folder: unchanged
+Report naming: reports/<APP_ID>_<DATE>_<TIME>
