@@ -69,25 +69,14 @@ node --version
 tools\yandex-draft-harness
 ```
 
-Самый простой вариант: дважды щёлкни `INSTALL-BUNDLE.bat`.
+Рекомендуемый способ: открой эту папку в Проводнике Windows и **дважды щёлкни `INSTALL-BUNDLE.bat`**.
 
-Либо открой PowerShell в этой папке и выполни:
+> Запускай именно `INSTALL-BUNDLE.bat`, а не `INSTALL-BUNDLE.ps1` вручную из PowerShell. `.bat` является штатной точкой входа установщика и сам запускает PowerShell в совместимом режиме.
 
-```powershell
-.\INSTALL-BUNDLE.bat
-```
+Если используешь обычную командную строку (`cmd.exe`), можно запустить так:
 
-Если запускаешь из корня репозитория:
-
-```powershell
-cd .\tools\yandex-draft-harness
-.\INSTALL-BUNDLE.bat
-```
-
-Можно запустить PowerShell-installer напрямую:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\INSTALL-BUNDLE.ps1
+```bat
+INSTALL-BUNDLE.bat
 ```
 
 GitHub хранит точный development bundle в `bundle/` как проверяемые base64-части. Это тот же ZIP, который был протестирован локально.
@@ -284,7 +273,7 @@ Harness использует отдельный постоянный брауз�
 tools\yandex-draft-harness\yg-debug-profile
 ```
 
-Если репозиторий распакован, например, на Рабочий стол или на другой диск, профиль будет создан именно внутри той копии `tools\yandex-draft-harness`, из которой запущен Harness.
+Если репозиторий распакован, например, на Рабочий стол или на диск `D:`, профиль будет создан именно внутри той копии `tools\yandex-draft-harness`, из которой запущен Harness.
 
 Если Яндекс просит авторизацию, войди в нужный аккаунт в окне браузера, запущенном Harness, закрой прогон и запусти его снова. Cookies сохраняются в этом локальном профиле.
 
