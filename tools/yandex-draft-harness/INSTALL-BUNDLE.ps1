@@ -55,8 +55,8 @@ if ($actualSha256 -ne $expectedSha256) {
 Write-Host "SHA-256 OK: $actualSha256" -ForegroundColor Green
 Expand-Archive -LiteralPath $tempZip -DestinationPath $tempExtract -Force
 
-$utf8Bom = New-Object System.Text.UTF8Encoding($true)
-$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+$utf8Bom = New-Object -TypeName System.Text.UTF8Encoding -ArgumentList $true
+$utf8NoBom = New-Object -TypeName System.Text.UTF8Encoding -ArgumentList $false
 
 $textFiles = Get-ChildItem -LiteralPath $tempExtract -File -Recurse | Where-Object {
     $_.Extension -in @(".ps1", ".md", ".txt", ".json")
