@@ -79,6 +79,12 @@ foreach ($file in $textFiles) {
     $text = $text.Replace('F:\ProjectForgeUniversal\yg-yandex-draft-harness', '<HARNESS_DIR>')
     $text = $text.Replace('F:\ProjectForgeUniversal\yg-checker-v1.2.1-test', '<CHECKER_DIR>')
     $text = $text.Replace('F:\ProjectForgeUniversal\yg-debug-profile', '.\yg-debug-profile')
+
+    # JSON files contain escaped backslashes, so sanitize those forms too.
+    $text = $text.Replace('F:\\ProjectForgeUniversal\\yg-yandex-draft-harness', '<HARNESS_DIR>')
+    $text = $text.Replace('F:\\ProjectForgeUniversal\\yg-checker-v1.2.1-test', '<CHECKER_DIR>')
+    $text = $text.Replace('F:\\ProjectForgeUniversal\\yg-debug-profile', '.\\yg-debug-profile')
+
     $text = $text.Replace('568143', '568867')
     $text = $text.Replace('run-568143-v1.2.1-test.ps1', 'run-568867-v1.2.1-test.ps1')
 
