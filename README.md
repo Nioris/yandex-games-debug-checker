@@ -8,6 +8,26 @@
 
 [English README](README.en.md)
 
+## Experimental Runtime Harness — эта ветка
+
+Ветка `experimental/runtime-harness-v1.2` содержит отдельный runtime-harness, который позволяет проверять уже загруженную игру на странице Яндекс Игр без добавления `debugcheck.js` в архив игры.
+
+Текущий проверенный candidate: `v1.2.8-test`.
+
+Полная инструкция — установка bundle, запуск `RUN-CHECKER.bat`, быстрый повторный запуск, действия во время теста и разбор `report.json` / `evidence.json` / `panel.txt` / `console.json`:
+
+**[`tools/yandex-draft-harness/README.md`](tools/yandex-draft-harness/README.md)**
+
+Коротко:
+
+```powershell
+cd .\tools\yandex-draft-harness
+.\INSTALL-BUNDLE.bat
+.\RUN-CHECKER.bat
+```
+
+Installer восстанавливает точный протестированный development bundle из файлов ветки и проверяет SHA-256 до распаковки. Стабильный `debugcheck.js` в корне репозитория при этом не заменяется.
+
 ## Сообщество и обратная связь
 
 - 💬 **Вопросы, идеи, предложения новых проверок и обсуждение правил:** [GitHub Discussions](https://github.com/Nioris/yandex-games-debug-checker/discussions)

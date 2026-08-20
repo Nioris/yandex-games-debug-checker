@@ -3,3 +3,8 @@ node_modules/
 *.log
 .audit-browser.html
 _site/
+
+tools/yandex-draft-harness/reports/
+tools/yandex-draft-harness/debugcheck-v*-test.js
+tools/yandex-draft-harness/*.meta.json
+yg-debug-profile/

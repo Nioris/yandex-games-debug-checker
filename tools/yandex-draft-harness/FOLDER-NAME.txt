@@ -1,0 +1,6 @@
+Рабочая папка Harness может находиться в любом месте.
+
+Все runtime-пути вычисляются относительно папки tools\yandex-draft-harness.
+
+Профиль браузера: .\yg-debug-profile
+Отчёты: .\reports\<APP_ID>_<YYYY-MM-DD>_<HH-MM-SS>
