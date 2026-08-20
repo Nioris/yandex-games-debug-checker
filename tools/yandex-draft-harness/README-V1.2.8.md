@@ -25,8 +25,8 @@ Harness также печатает:
 
 [Harness] GAMEPLAY lifecycle=...
 
-Рабочая папка не меняется:
-F:\ProjectForgeUniversal\yg-yandex-draft-harness
+Рабочая папка не привязана к конкретному диску:
+`<HARNESS_DIR>`
 
 Отчёты:
 reports\<APP_ID>_<YYYY-MM-DD>_<HH-MM-SS>
