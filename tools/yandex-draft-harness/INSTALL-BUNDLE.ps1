@@ -55,6 +55,51 @@ if ($actualSha256 -ne $expectedSha256) {
 Write-Host "SHA-256 OK: $actualSha256" -ForegroundColor Green
 Expand-Archive -LiteralPath $tempZip -DestinationPath $tempExtract -Force
 
+# The original development snapshot was created in one local Windows folder.
+# Make the extracted copy portable before installing it into the repository checkout.
+$textFiles = Get-ChildItem -LiteralPath $tempExtract -File -Recurse | Where-Object {
+    $_.Extension -in @(".ps1", ".md", ".txt", ".json")
+}
+
+foreach ($file in $textFiles) {
+    $text = [System.IO.File]::ReadAllText($file.FullName)
+
+    # Runtime launchers: replace any machine-specific absolute Chrome profile
+    # with a profile stored next to this Harness checkout.
+    $text = [regex]::Replace(
+        $text,
+        '\$profile\s*=\s*"[A-Za-z]:\\[^"\r\n]*\\yg-debug-profile"',
+        '$$profile = Join-Path $$PSScriptRoot "yg-debug-profile"'
+    )
+    $text = [regex]::Replace(
+        $text,
+        '--profile\s+"[A-Za-z]:\\[^"\r\n]*\\yg-debug-profile"\s+`',
+        '--profile (Join-Path $$PSScriptRoot "yg-debug-profile") `'
+    )
+
+    # Documentation / validation snapshots: remove any absolute local folder.
+    $text = [regex]::Replace(
+        $text,
+        '"permanent_working_folder"\s*:\s*"[^"]+"',
+        '"permanent_working_folder": "<HARNESS_DIR>"'
+    )
+    $text = [regex]::Replace($text, '[A-Za-z]:\\[^\r\n`"]*\\yg-yandex-draft-harness', '<HARNESS_DIR>')
+    $text = [regex]::Replace($text, '[A-Za-z]:\\[^\r\n`"]*\\yg-checker-v1\.2\.1-test', '<CHECKER_DIR>')
+    $text = [regex]::Replace($text, '[A-Za-z]:\\[^\r\n`"]*\\yg-debug-profile', '.\\yg-debug-profile')
+
+    # Keep the current README/test example aligned with the active draft app.
+    $text = $text.Replace('568143', '568867')
+    $text = $text.Replace('run-568143-v1.2.1-test.ps1', 'run-568867-v1.2.1-test.ps1')
+
+    [System.IO.File]::WriteAllText($file.FullName, $text, [System.Text.UTF8Encoding]::new($false))
+}
+
+$oldGameLauncher = Join-Path $tempExtract "run-568143-v1.2.1-test.ps1"
+$newGameLauncher = Join-Path $tempExtract "run-568867-v1.2.1-test.ps1"
+if (Test-Path $oldGameLauncher) {
+    Move-Item -LiteralPath $oldGameLauncher -Destination $newGameLauncher -Force
+}
+
 foreach ($item in Get-ChildItem -LiteralPath $tempExtract -Force) {
     if ($item.Name -eq "README.md") {
         Copy-Item -LiteralPath $item.FullName -Destination (Join-Path $PSScriptRoot "README-BUNDLE.md") -Force
@@ -80,8 +125,9 @@ foreach ($name in $required) {
     }
 }
 
-Write-Host "" 
+Write-Host ""
 Write-Host "Bundle установлен в:" -ForegroundColor Green
 Write-Host $PSScriptRoot -ForegroundColor White
-Write-Host "" 
+Write-Host ""
+Write-Host "Профиль браузера будет храниться рядом с Harness: .\yg-debug-profile" -ForegroundColor Gray
 Write-Host "Теперь запусти RUN-CHECKER.bat" -ForegroundColor Cyan
