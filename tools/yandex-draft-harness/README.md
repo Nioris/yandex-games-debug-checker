@@ -20,6 +20,31 @@ Harness запускает отдельный Chrome/Edge через CDP, отк
 
 Это особенно полезно для Unity/WASM и других сборок, где обычный поиск текста в JavaScript часто даёт false negative.
 
+## Как скачать Harness
+
+### Самый простой способ — без Git
+
+1. Открой ветку [`experimental/runtime-harness-v1.2`](https://github.com/Nioris/yandex-games-debug-checker/tree/experimental/runtime-harness-v1.2).
+2. Нажми зелёную кнопку **Code**.
+3. Выбери **Download ZIP**.
+4. Распакуй скачанный ZIP в любую удобную папку, например на Рабочий стол.
+5. В распакованной папке открой:
+
+```text
+tools\yandex-draft-harness
+```
+
+В этой папке находятся installer и README Harness.
+
+### Вариант через Git
+
+Если Git уже установлен, можно скачать сразу нужную ветку командой:
+
+```powershell
+git clone --branch experimental/runtime-harness-v1.2 --single-branch https://github.com/Nioris/yandex-games-debug-checker.git
+cd .\yandex-games-debug-checker\tools\yandex-draft-harness
+```
+
 ## Что нужно установить
 
 На Windows нужны:
@@ -36,22 +61,36 @@ Harness запускает отдельный Chrome/Edge через CDP, отк
 node --version
 ```
 
-## 1. Один раз установить bundle из этой ветки
+## 1. Установить Harness после скачивания
 
-GitHub-коннектор хранит точный development bundle в `bundle/` как проверяемые base64-части. Это тот же ZIP, который был протестирован локально.
+После того как репозиторий скачан и распакован, открой папку:
 
-Из корня репозитория:
+```text
+tools\yandex-draft-harness
+```
+
+Самый простой вариант: дважды щёлкни `INSTALL-BUNDLE.bat`.
+
+Либо открой PowerShell в этой папке и выполни:
+
+```powershell
+.\INSTALL-BUNDLE.bat
+```
+
+Если запускаешь из корня репозитория:
 
 ```powershell
 cd .\tools\yandex-draft-harness
 .\INSTALL-BUNDLE.bat
 ```
 
-или напрямую:
+Можно запустить PowerShell-installer напрямую:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\INSTALL-BUNDLE.ps1
 ```
+
+GitHub хранит точный development bundle в `bundle/` как проверяемые base64-части. Это тот же ZIP, который был протестирован локально.
 
 Installer:
 
@@ -68,6 +107,22 @@ Installer:
 
 Если checksum не совпадёт, installer остановится и ничего не будет запускать.
 
+После успешной установки в этой же папке появятся `RUN-CHECKER.bat`, `RUN-CHECKER-QUICK.bat`, builder, patch-chain и остальные файлы Harness.
+
+### Коротко: скачать → установить → запустить
+
+Если используешь **Download ZIP**, последовательность такая:
+
+```text
+1. GitHub → Code → Download ZIP
+2. Распаковать ZIP
+3. Открыть tools\yandex-draft-harness
+4. Запустить INSTALL-BUNDLE.bat
+5. Запустить RUN-CHECKER.bat
+6. Вставить ссылку на игру:
+   https://yandex.ru/games/app/568867?debug-mode=16&draft=true&lang=ru
+```
+
 ## 2. Обычный запуск
 
 После установки bundle запусти:
@@ -79,7 +134,7 @@ Installer:
 Launcher попросит полную ссылку на игру. Например:
 
 ```text
-https://yandex.ru/games/app/568143?debug-mode=16&draft=true&lang=ru
+https://yandex.ru/games/app/568867?debug-mode=16&draft=true&lang=ru
 ```
 
 Дальше он автоматически:
@@ -147,7 +202,7 @@ reports\<APP_ID>_<YYYY-MM-DD>_<HH-MM-SS>
 Например:
 
 ```text
-reports\568143_2026-08-20_09-15-42
+reports\568867_2026-08-20_09-15-42
 ```
 
 Если App ID не удалось извлечь из URL, вместо него будет `unknown`.
@@ -237,7 +292,7 @@ F:\ProjectForgeUniversal\yg-debug-profile
 Текущий launcher автоматически извлекает App ID только из URL вида:
 
 ```text
-/games/app/568143
+/games/app/568867
 ```
 
 Для slug URL, где ID находится только в конце имени, проверка может работать, но папка отчёта получит `unknown`. Исправление slug App ID extraction остаётся отдельной задачей.
