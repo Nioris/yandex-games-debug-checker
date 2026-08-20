@@ -19,7 +19,32 @@ $parts = @(
     "yg-yandex-draft-harness-v1.2.8-test.zip.b64.011b"
 )
 
+function Get-Sha256Hex([string]$Path) {
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    $stream = [System.IO.File]::OpenRead($Path)
+    try {
+        $hashBytes = $sha.ComputeHash($stream)
+        return ([System.BitConverter]::ToString($hashBytes)).Replace("-", "").ToLowerInvariant()
+    }
+    finally {
+        $stream.Dispose()
+        $sha.Dispose()
+    }
+}
+
+function Expand-ZipCompat([string]$ZipPath, [string]$DestinationPath) {
+    try {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction Stop
+    }
+    catch {
+        throw "Cannot load System.IO.Compression.FileSystem. Install .NET Framework 4.5 or newer."
+    }
+
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($ZipPath, $DestinationPath)
+}
+
 Write-Host "Yandex Draft Runtime Harness v1.2.8-test" -ForegroundColor Cyan
+Write-Host "PowerShell version: $($PSVersionTable.PSVersion)" -ForegroundColor Gray
 Write-Host "Verifying bundle..." -ForegroundColor Gray
 
 $missing = @()
@@ -46,20 +71,21 @@ New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
 New-Item -ItemType Directory -Path $tempExtract -Force | Out-Null
 [System.IO.File]::WriteAllBytes($tempZip, $zipBytes)
 
-$actualSha256 = (Get-FileHash -Algorithm SHA256 -Path $tempZip).Hash.ToLowerInvariant()
+$actualSha256 = Get-Sha256Hex $tempZip
 if ($actualSha256 -ne $expectedSha256) {
     Remove-Item -Recurse -Force $tempRoot -ErrorAction SilentlyContinue
     throw "Bundle SHA-256 mismatch. Expected: $expectedSha256; actual: $actualSha256"
 }
 
 Write-Host "SHA-256 OK: $actualSha256" -ForegroundColor Green
-Expand-Archive -LiteralPath $tempZip -DestinationPath $tempExtract -Force
+Expand-ZipCompat $tempZip $tempExtract
 
 $utf8Bom = New-Object -TypeName System.Text.UTF8Encoding -ArgumentList $true
 $utf8NoBom = New-Object -TypeName System.Text.UTF8Encoding -ArgumentList $false
+$allowedExtensions = @(".ps1", ".md", ".txt", ".json")
 
-$textFiles = Get-ChildItem -LiteralPath $tempExtract -File -Recurse | Where-Object {
-    $_.Extension -in @(".ps1", ".md", ".txt", ".json")
+$textFiles = Get-ChildItem -LiteralPath $tempExtract -Recurse | Where-Object {
+    (-not $_.PSIsContainer) -and ($allowedExtensions -contains $_.Extension)
 }
 
 foreach ($file in $textFiles) {
@@ -78,7 +104,6 @@ foreach ($file in $textFiles) {
         )
     }
 
-    # Remove machine-specific absolute development paths from docs/validation files.
     $text = [regex]::Replace(
         $text,
         '[A-Za-z]:(?:\\){1,2}[^\r\n`"]*?(?:\\){1,2}yg-yandex-draft-harness',
