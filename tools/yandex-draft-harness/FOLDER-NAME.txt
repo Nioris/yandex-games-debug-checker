@@ -1,6 +1,6 @@
-Постоянная рабочая папка:
+Рабочая папка Harness может находиться в любом месте.
 
-F:\ProjectForgeUniversal\yg-yandex-draft-harness
+Все runtime-пути вычисляются относительно папки tools\yandex-draft-harness.
 
-Новые versioned-папки больше не создавать.
-Новые пакеты распаковывать поверх этой папки.
+Профиль браузера: .\yg-debug-profile
+Отчёты: .\reports\<APP_ID>_<YYYY-MM-DD>_<HH-MM-SS>
