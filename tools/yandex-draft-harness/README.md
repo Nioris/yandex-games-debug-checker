@@ -1,101 +1,140 @@
 # Yandex Draft Runtime Harness
 
-Экспериментальный runtime-harness для проверки уже загруженной игры прямо на странице Яндекс Игр — **без встраивания `debugcheck.js` в архив игры**.
+Экспериментальный runtime-harness для проверки уже загруженной игры прямо на странице Яндекс Игр — без добавления `debugcheck.js` в архив самой игры.
 
-Ветка: `experimental/runtime-harness-v1.2`.
+Ветка: `experimental/runtime-harness-v1.2`  
+Проверенный checker candidate: `v1.2.8-test`  
+Harness: passive CDP/OOPIF runtime harness.
 
-> Важно: это экспериментальная ветка. Она нужна для проверки runtime-подхода и подготовки следующей версии checker'а. `main` пока остаётся публичной стабильной версией.
+> Это экспериментальная ветка. `main` остаётся стабильной публичной версией checker'а. Harness не является официальным инструментом Яндекса, а PASS не гарантирует прохождение модерации.
 
 ## Что делает Harness
 
-Harness запускает отдельный Chrome через CDP, открывает страницу игры в Яндекс Играх, находит реальный game iframe/OOPIF и внедряет checker до выполнения игровой логики, насколько это позволяет браузерный lifecycle.
+Harness запускает отдельный Chrome/Edge через CDP, открывает страницу игры в Яндекс Играх, находит реальный game iframe/OOPIF и внедряет checker без изменения загруженной сборки игры.
 
-Он собирает три вида доказательств:
+Он сводит три типа доказательств:
 
-- **STATIC** — сигнатуры и вызовы найдены в исходниках/DOM;
-- **RUNTIME** — вызов реально перехвачен внутри game frame;
-- **PLATFORM** — событие подтверждено debug/runtime-логами самой платформы Яндекс Игр.
+- **STATIC** — сигнатура или вызов найден в исходниках/DOM;
+- **RUNTIME** — вызов реально замечен внутри game frame;
+- **PLATFORM** — событие подтверждено runtime/debug-логами платформы Яндекс Игр.
 
-Это позволяет корректнее проверять Unity/WASM и другие сборки, где обычный поиск текста в исходниках даёт false negative.
+Это особенно полезно для Unity/WASM и других сборок, где обычный поиск текста в JavaScript часто даёт false negative.
 
-## Что уже проверяется в experimental runtime flow
+## Что нужно установить
 
-- загрузка `/sdk.js` и `YaGames.init()`;
-- фактический `LoadingAPI.ready()`;
-- порядок SDK init → ready → GameplayAPI lifecycle;
-- `GameplayAPI.start()` / `stop()` без подмены `stop` за доказательство `start`;
-- pause/resume игры при interstitial;
-- ранний пользовательский input до SDK init / ready;
-- подтверждённая реакция игрового UI до ready как hard FAIL;
-- `Event Timeline`: `ORDER OK`, `ORDER RISK`, `ORDER FAIL`;
-- runtime `contextmenu` на реальной игровой поверхности/canvas;
-- Cloud Saves и Payments с разделением static/runtime evidence;
-- локализация с отдельным статусом `MANUAL`, если автоматическое доказательство невозможно.
+На Windows нужны:
 
-## Статусы
+- Node.js 18+;
+- Google Chrome или Microsoft Edge;
+- PowerShell;
+- доступ к нужной игре в Яндекс Играх;
+- для draft-ссылок — аккаунт Яндекса, у которого есть доступ к черновику.
 
-- **PASS** — есть достаточное автоматическое доказательство;
-- **FAIL** — подтверждён hard-fail сигнал;
-- **WARN** — обнаружен риск/эвристический сигнал;
-- **MANUAL** — автоматическая проверка не может надёжно доказать результат, пользователь должен проверить пункт вручную; MANUAL не снижает quality score;
-- **N/V** — недостаточно данных, но отдельной ручной инструкции для этого пункта нет;
-- **N/A** — функция не используется.
-
-## Текущий протестированный кандидат
-
-Checker: `v1.2.8-test`  
-Harness: `1.0.0-summary-integrity`
-
-Важное исправление v1.2.8: checker больше не пишет `SDK init → ready → gameplay`, если `GameplayAPI.start()` не был реально замечен. Если наблюдался только `stop()`, результат lifecycle — `NOT VERIFIED`.
-
-Подробности: [`README-V1.2.8.md`](README-V1.2.8.md) и [`EXPERIMENTAL-STATUS.md`](EXPERIMENTAL-STATUS.md).
-
-## Как пользоваться сейчас
-
-Текущий полностью протестированный рабочий экземпляр запускается из одной постоянной папки:
+Проверить Node.js:
 
 ```powershell
-cd F:\ProjectForgeUniversal\yg-yandex-draft-harness
+node --version
+```
+
+## 1. Один раз установить bundle из этой ветки
+
+GitHub-коннектор хранит точный development bundle в `bundle/` как проверяемые base64-части. Это тот же ZIP, который был протестирован локально.
+
+Из корня репозитория:
+
+```powershell
+cd .\tools\yandex-draft-harness
+.\INSTALL-BUNDLE.bat
+```
+
+или напрямую:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\INSTALL-BUNDLE.ps1
+```
+
+Installer:
+
+1. соединяет все части bundle;
+2. восстанавливает исходный ZIP;
+3. проверяет SHA-256;
+4. только после успешной проверки распаковывает launchers, builder и весь patch-chain в текущую папку.
+
+Ожидаемый SHA-256 bundle:
+
+```text
+87f64a93262589f39eb0c92253e8f756d38f848dcef392fd8de436ac2d7a340a
+```
+
+Если checksum не совпадёт, installer остановится и ничего не будет запускать.
+
+## 2. Обычный запуск
+
+После установки bundle запусти:
+
+```powershell
 .\RUN-CHECKER.bat
 ```
 
-Launcher попросит ссылку на игру. Вставьте draft/debug URL, например:
+Launcher попросит полную ссылку на игру. Например:
 
 ```text
-https://yandex.ru/games/app/574662?debug-mode=16&draft=true&lang=ru
+https://yandex.ru/games/app/568143?debug-mode=16&draft=true&lang=ru
 ```
 
-или обычную ссылку на опубликованную/черновую игру, если доступ к ней уже есть в вашем аккаунте.
+Дальше он автоматически:
 
-Дальше launcher:
+1. определяет App ID для URL вида `/games/app/<ID>`;
+2. закрывает старый Harness Chrome с тем же выделенным профилем;
+3. собирает `debugcheck-v1.2.0-test` из audited public base;
+4. последовательно применяет patch-chain `v1.2.0 → v1.2.8`;
+5. запускает passive Harness;
+6. открывает страницу Яндекс Игр;
+7. находит реальный game frame/OOPIF;
+8. внедряет `debugcheck-v1.2.8-test`;
+9. собирает runtime/platform evidence;
+10. сохраняет отдельный отчёт для этого прогона.
 
-1. собирает текущий experimental checker candidate;
-2. запускает отдельный Chrome с постоянным debug-профилем;
-3. открывает страницу Яндекс Игр;
-4. находит game iframe;
-5. внедряет checker;
-6. собирает runtime/platform evidence;
-7. после нажатия Enter сохраняет отчёт.
+Стабильный `debugcheck.js` в корне репозитория этим не заменяется.
 
-После первой успешной сборки можно использовать быстрый запуск:
+## 3. Что делать, когда открылась игра
+
+Дождись сообщения в консоли:
+
+```text
+[Harness] GAME/CHECKER FRAME FOUND
+```
+
+После этого используй игру как реальный пользователь. Для полезного runtime-прогона желательно:
+
+- нажать старт/продолжить;
+- сделать несколько игровых действий;
+- открыть паузу;
+- переключить вкладку и вернуться;
+- вызвать interstitial/rewarded ad, если она доступна;
+- проверить сохранение/загрузку, если игра это поддерживает;
+- попробовать ранний input сразу после старта страницы;
+- для локализации повторить прогон с `&lang=ru`, `&lang=en` и другими заявленными языками.
+
+Когда сценарий закончен, вернись в окно PowerShell и нажми Enter. Harness соберёт финальный report и скриншот.
+
+## 4. Быстрый повторный запуск
+
+После первого успешного обычного запуска уже существует:
+
+```text
+debugcheck-v1.2.8-test.js
+```
+
+Тогда можно не пересобирать весь patch-chain:
 
 ```powershell
-cd F:\ProjectForgeUniversal\yg-yandex-draft-harness
 .\RUN-CHECKER-QUICK.bat
 ```
 
-## Что делать во время теста
+Quick launcher использует уже собранный `debugcheck-v1.2.8-test.js`, снова спрашивает URL и создаёт новый отчёт.
 
-После сообщения `GAME/CHECKER FRAME FOUND` поиграйте в игру как обычный пользователь:
-
-- нажмите старт/продолжить;
-- откройте паузу;
-- переключите вкладку и вернитесь;
-- вызовите interstitial/rewarded ad, если это возможно;
-- проверьте сохранение/загрузку, если функция есть;
-- специально попробуйте нажимать на игровые элементы очень рано при старте — Harness проверяет, может ли игра реагировать до SDK init / `LoadingAPI.ready()`.
-
-После этого вернитесь в PowerShell и нажмите Enter.
+Если checker ещё не собран, quick launcher попросит сначала запустить `RUN-CHECKER.bat`.
 
 ## Где лежат отчёты
 
@@ -105,70 +144,128 @@ cd F:\ProjectForgeUniversal\yg-yandex-draft-harness
 reports\<APP_ID>_<YYYY-MM-DD>_<HH-MM-SS>
 ```
 
-Основные файлы:
+Например:
 
-- `report.json` — полный structured report;
-- `evidence.json` — reconciled STATIC/RUNTIME/PLATFORM evidence;
-- `panel.txt` — текст панели checker'а;
-- `console.json` — собранная console/platform трассировка;
-- `page.png` — скриншот страницы;
-- `chrome.log` — лог Chrome/Harness.
-
-Для автоматизации в первую очередь используйте `report.json`:
-
-```json
-{
-  "summary": {
-    "pass": 63,
-    "fail": 3,
-    "warn": 9,
-    "manual": 7,
-    "notVerified": 1,
-    "score": "84%"
-  },
-  "page": {
-    "timeline": {
-      "status": "FAIL",
-      "hardFail": true,
-      "risk": false
-    }
-  }
-}
+```text
+reports\568143_2026-08-20_09-15-42
 ```
+
+Если App ID не удалось извлечь из URL, вместо него будет `unknown`.
+
+## Что смотреть в отчёте
+
+Начинать удобнее в таком порядке:
+
+### `panel.txt`
+
+Текстовое состояние панели checker'а. Быстрый способ увидеть PASS / FAIL / WARN / MANUAL / NOT VERIFIED.
+
+### `report.json`
+
+Главный structured report. Его стоит использовать для автоматизации и сравнения прогонов.
+
+Особенно важны:
+
+- `summary` — итоговые счётчики и score;
+- `checks` — результаты отдельных проверок;
+- `timing` — runtime timing;
+- `page.timeline` — порядок SDK/ready/gameplay событий;
+- runtime/session/frame данные Harness.
+
+### `evidence.json`
+
+Сведённые STATIC / RUNTIME / PLATFORM доказательства. Полезен, когда нужно понять, почему конкретная проверка получила статус.
+
+### `console.json`
+
+Console + platform trace. Здесь ищут реальные SDK/advertising/platform события и ошибки страницы.
+
+### `page.png`
+
+Скриншот страницы в момент завершения прогона.
+
+### `chrome.log`
+
+Технический лог Chrome/Harness. Нужен в первую очередь для диагностики проблем CDP, frame attachment и запуска браузера.
+
+## Как читать статусы
+
+- **PASS** — автоматических доказательств достаточно;
+- **FAIL** — подтверждён hard-fail сигнал;
+- **WARN** — найден риск или эвристический сигнал;
+- **MANUAL** — этот пункт нельзя надёжно доказать автоматически, нужна ручная проверка; MANUAL не должен искусственно превращаться в PASS;
+- **NOT VERIFIED / N/V** — данных недостаточно для автоматического вывода;
+- **N/A** — функция в этом прогоне не используется или не обнаружена.
+
+## Event Timeline
+
+Для startup/lifecycle особенно смотри timeline:
+
+- `ORDER OK` — наблюдаемый порядок событий корректен;
+- `ORDER RISK` — есть риск, но недостаточно доказательств для hard fail;
+- `ORDER FAIL` — подтверждён неправильный порядок/ранняя реакция игры.
+
+В `v1.2.8-test` `GameplayAPI.stop()` больше не считается доказательством того, что `GameplayAPI.start()` когда-либо происходил. Если `start()` не замечен, lifecycle остаётся `NOT VERIFIED`.
 
 ## Ручная проверка языка
 
-Если checker не может доказать `ysdk.environment.i18n.lang`, пункт становится `MANUAL`, а не серым N/V и не искусственным PASS.
+Если checker не смог доказать чтение `ysdk.environment.i18n.lang`, пункт может стать `MANUAL`/`NOT VERIFIED` вместо искусственного PASS.
 
-Порядок ручной проверки:
+Для проверки:
 
-1. открыть игру с `debug-mode=16`;
-2. проверить официальный I18N status в debug-панели Яндекс Игр;
-3. запустить игру с `&lang=ru`;
-4. затем с другим заявленным языком, например `&lang=en`;
-5. убедиться, что видимый интерфейс действительно меняет язык до `LoadingAPI.ready()`;
-6. отдельно осмотреть Canvas-текст, если он не доступен DOM-анализу.
+1. запусти игру с `debug-mode=16`;
+2. проверь I18N status в debug-панели Яндекс Игр;
+3. запусти с `&lang=ru`;
+4. повтори с `&lang=en` или другим заявленным языком;
+5. убедись, что видимый интерфейс реально меняет язык;
+6. отдельно проверь Canvas-текст, который DOM-анализ может не увидеть.
 
-## Что находится именно в этой ветке
+## Если draft не открывается
 
-Эта ветка сейчас сохраняет **проверенный experimental snapshot**, а не выдаёт его за готовый `main` release:
+Harness использует отдельный постоянный браузерный профиль:
 
-- статус и описание runtime-архитектуры;
-- regression notes для `v1.2.8-test`;
-- validation snapshot;
-- последнюю проверенную patch-ступень `v1.2.7 → v1.2.8`.
+```text
+F:\ProjectForgeUniversal\yg-debug-profile
+```
 
-Полный локальный patch-chain и launch tooling пока остаются в рабочей development-копии и будут затем схлопнуты в чистые repository sources. Это сделано намеренно: сначала сохраняем доказанный runtime-подход, затем рефакторим без потери поведения.
+Если Яндекс просит авторизацию, войди в нужный аккаунт в окне браузера, запущенном Harness, закрой прогон и запусти его снова. Cookies сохраняются в этом профиле.
 
-## Ограничения
+Не запускай два Harness одновременно с одним и тем же profile directory.
+
+## Известное ограничение URL
+
+Текущий launcher автоматически извлекает App ID только из URL вида:
+
+```text
+/games/app/568143
+```
+
+Для slug URL, где ID находится только в конце имени, проверка может работать, но папка отчёта получит `unknown`. Исправление slug App ID extraction остаётся отдельной задачей.
+
+## Проверка source tooling без браузера
+
+Builder, каждый upgrader и сам Harness имеют self-test. Например:
+
+```powershell
+node .\build-debugcheck-v1.2-test.mjs --self-test
+node .\upgrade-debugcheck-v1.2.7-to-v1.2.8.mjs --self-test
+node .\yg-yandex-draft-harness-passive.mjs --self-test
+```
+
+Перед публикацией этого snapshot локально были успешно пройдены self-test builder'а, всех восьми upgrade-ступеней и Harness.
+
+## Дополнительные файлы
+
+- [`EXPERIMENTAL-STATUS.md`](EXPERIMENTAL-STATUS.md) — что уже доказано live-прогонами и что ещё экспериментально;
+- [`README-V1.2.8.md`](README-V1.2.8.md) — regression notes для последнего candidate;
+- `README-BUNDLE.md` — исходный README из development bundle; появляется после `INSTALL-BUNDLE`;
+- `*-VALIDATION.*` — сохранённые validation snapshots отдельных стадий разработки.
+
+## Безопасность и ограничения
 
 - Harness не является официальным инструментом Яндекса;
 - PASS не гарантирует прохождение модерации;
-- некоторые Unity/WASM вызовы могут подтверждаться только platform evidence;
-- raw click до ready сам по себе не всегда FAIL: hard FAIL появляется, когда подтверждена реакция игрового UI или gameplay state;
-- отсутствие рекламного инвентаря не является ошибкой игры;
-- MANUAL пункты действительно требуют проверки человеком.
-
-## PR status
-
-Эта ветка предназначена для review/runtime experimentation. PR из неё в `main` лучше держать как experimental/draft, пока patch-chain не будет схлопнут в чистый `debugcheck.js` и нормальный standalone Harness source.
+- некоторые Unity/WASM события могут подтверждаться только platform evidence;
+- отсутствие рекламного инвентаря само по себе не является ошибкой игры;
+- MANUAL пункты действительно требуют проверки человеком;
+- runtime instrumentation предназначена для тестирования, не для production-сборки игры.
