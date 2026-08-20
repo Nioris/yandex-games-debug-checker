@@ -66,24 +66,34 @@ foreach ($file in $textFiles) {
     $text = [System.IO.File]::ReadAllText($file.FullName)
 
     if ($file.Extension -eq ".ps1") {
-        $text = $text.Replace(
-            '$profile = "F:\ProjectForgeUniversal\yg-debug-profile"',
+        $text = [regex]::Replace(
+            $text,
+            '\$profile\s*=\s*"[A-Za-z]:\\[^"\r\n]*\\yg-debug-profile"',
             '$profile = Join-Path $PSScriptRoot "yg-debug-profile"'
         )
-        $text = $text.Replace(
-            '--profile "F:\ProjectForgeUniversal\yg-debug-profile" `',
+        $text = [regex]::Replace(
+            $text,
+            '--profile\s+"[A-Za-z]:\\[^"\r\n]*\\yg-debug-profile"\s+`',
             '--profile (Join-Path $PSScriptRoot "yg-debug-profile") `'
         )
     }
 
-    $text = $text.Replace('F:\ProjectForgeUniversal\yg-yandex-draft-harness', '<HARNESS_DIR>')
-    $text = $text.Replace('F:\ProjectForgeUniversal\yg-checker-v1.2.1-test', '<CHECKER_DIR>')
-    $text = $text.Replace('F:\ProjectForgeUniversal\yg-debug-profile', '.\yg-debug-profile')
-
-    # JSON files contain escaped backslashes, so sanitize those forms too.
-    $text = $text.Replace('F:\\ProjectForgeUniversal\\yg-yandex-draft-harness', '<HARNESS_DIR>')
-    $text = $text.Replace('F:\\ProjectForgeUniversal\\yg-checker-v1.2.1-test', '<CHECKER_DIR>')
-    $text = $text.Replace('F:\\ProjectForgeUniversal\\yg-debug-profile', '.\\yg-debug-profile')
+    # Remove machine-specific absolute development paths from docs/validation files.
+    $text = [regex]::Replace(
+        $text,
+        '[A-Za-z]:(?:\\){1,2}[^\r\n`"]*?(?:\\){1,2}yg-yandex-draft-harness',
+        '<HARNESS_DIR>'
+    )
+    $text = [regex]::Replace(
+        $text,
+        '[A-Za-z]:(?:\\){1,2}[^\r\n`"]*?(?:\\){1,2}yg-checker-v1\.2\.1-test',
+        '<CHECKER_DIR>'
+    )
+    $text = [regex]::Replace(
+        $text,
+        '[A-Za-z]:(?:\\){1,2}[^\r\n`"]*?(?:\\){1,2}yg-debug-profile',
+        '.\yg-debug-profile'
+    )
 
     $text = $text.Replace('568143', '568867')
     $text = $text.Replace('run-568143-v1.2.1-test.ps1', 'run-568867-v1.2.1-test.ps1')
