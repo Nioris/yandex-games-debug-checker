@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 Set-Location -LiteralPath $PSScriptRoot
 
 $bundleBase = "yg-yandex-draft-harness-v1.2.9-test.zip"
-$expectedSha256 = "d7000056f30c6978a9e4c394e560965e12445972386fb4c4025e309494026f8e"
+$expectedSha256 = "ddf09e4dca58a7339b9ae65f6af28c22c9418eb99cba170b9f9a87d93ba7517a"
 $bundleDir = Join-Path $PSScriptRoot "bundle"
 
 function Get-Sha256Hex([string]$Path) {
