@@ -1,14 +1,26 @@
 {
   "mode": "after",
   "summary": {
-    "pass": 70,
+    "pass": 73,
     "fail": 0,
     "warn": 0,
-    "notVerified": 2,
+    "notVerified": 5,
     "score": "100%"
   },
   "warnings": [],
   "notVerified": [
+    {
+      "name": "Game looks finished, not WIP (п.1.15) REQ 1.15",
+      "detail": "NOT VERIFIED — No obvious WIP placeholder text was found, but REQ 1.15 now explicitly requires the whole game to be finished: texts, graphics, controls and gameplay mechanics. Review the complete build manually."
+    },
+    {
+      "name": "Progress preserved after orientation change (п.1.9) REQ 1.9",
+      "detail": "NOT VERIFIED — Static analysis cannot prove that the exact in-game state survives portrait↔landscape rotation. Make meaningful progress, rotate the device, and verify that state/progress is preserved."
+    },
+    {
+      "name": "Monetization present or explicitly waived (п.1.12) REQ 1.12",
+      "detail": "NOT VERIFIED — No ad/IAP markers were found in the scanned game source. This can be valid under REQ 1.12 only when monetization is intentionally disabled and that decision is written in the Draft developer comment."
+    },
     {
       "name": "GameReady after first paint REQ 1.19",
       "detail": "NOT VERIFIED — Need both first-paint and LoadingAPI.ready() runtime timestamps"

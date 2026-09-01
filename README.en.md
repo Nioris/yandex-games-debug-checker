@@ -15,7 +15,7 @@ The distribution is a single dependency-free `debugcheck.js` file. Load it after
 
 If you are not sure whether a result is a checker defect or a rule-interpretation question, start in Discussions. Issues are intended for concrete reproducible problems.
 
-Public v1.1.0 contains 93 executable checks classified as **REQ** (linked to a published requirement), **REC** (published recommendation), or **HEURISTIC** (best-effort engineering signal).
+Public v1.1.1 contains 99 executable checks classified as **REQ** (linked to a published requirement), **REC** (published recommendation), or **HEURISTIC** (best-effort engineering signal).
 
 ## Quick start
 
@@ -43,8 +43,8 @@ The numbers below are not hard-coded. The browser audit actually runs both varia
 
 | Variant | PASS | FAIL | WARN | N/V | SCORE |
 |---|---:|---:|---:|---:|---:|
-| Before | 45 | 3 | 12 | 10 | 75% |
-| After | 70 | 0 | 0 | 2 | 100% |
+| Before | 49 | 3 | 11 | 13 | 78% |
+| After | 73 | 0 | 0 | 5 | 100% |
 
 The `before` variant intentionally contains representative integration problems that the checker is expected to detect. The corrected `after` variant demonstrates SDK initialization, startup language detection, an input gate, Game Ready, optional Gameplay API lifecycle markers, mobile hardening and a sound toggle. The corrected example has no WARN/FAIL results. Two items remain NOT VERIFIED: first-paint timing in the headless harness and Canvas-rendered text, which DOM scanning cannot prove.
 

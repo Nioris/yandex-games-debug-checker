@@ -35,7 +35,7 @@ assert.equal(afterMock.replace('<script src="../mock-sdk.js"></script>\n',''), a
 assert.ok(mock.includes('YaGames') && mock.includes('LoadingAPI') && mock.includes('GameplayAPI'), 'mock SDK covers demo lifecycle');
 const beforeReport=JSON.parse(fs.readFileSync(path.join(base,'reports','before.json'),'utf8'));
 const afterReport=JSON.parse(fs.readFileSync(path.join(base,'reports','after.json'),'utf8'));
-assert.deepEqual(beforeReport.summary,{pass:45,fail:3,warn:12,notVerified:10,score:'75%'},'before report snapshot');
-assert.deepEqual(afterReport.summary,{pass:70,fail:0,warn:0,notVerified:2,score:'100%'},'after report snapshot');
+assert.deepEqual(beforeReport.summary,{pass:49,fail:3,warn:11,notVerified:13,score:"78%"},'before report snapshot');
+assert.deepEqual(afterReport.summary,{pass:73,fail:0,warn:0,notVerified:5,score:"100%"},'after report snapshot');
 
 console.log('example-static: PASS — Orc Castle before/after structure and production/mock separation');

@@ -19,7 +19,7 @@
 
 ## Что проверяется
 
-Public v1.1.0 содержит 93 исполняемых проверок. Они разделены на три класса:
+Public v1.1.1 содержит 99 исполняемых проверок. Они разделены на три класса:
 
 - **REQ** — проверка привязана к опубликованному требованию Яндекс Игр;
 - **REC** — проверка привязана к опубликованной рекомендации;
@@ -65,8 +65,8 @@ YGDebugChecker.refresh();
 
 | Вариант | PASS | FAIL | WARN | N/V | SCORE |
 |---|---:|---:|---:|---:|---:|
-| Before | 45 | 3 | 12 | 10 | 75% |
-| After | 70 | 0 | 0 | 2 | 100% |
+| Before | 49 | 3 | 11 | 13 | 78% |
+| After | 73 | 0 | 0 | 5 | 100% |
 
 `before` намеренно содержит типовые проблемы интеграции, которые должен обнаружить checker. `after` показывает исправленный вариант: корректный порядок `SDK → checker → game`, startup через `YaGames.init()`, чтение `environment.i18n.lang`, input gate, Game Ready, optional Gameplay API lifecycle, mobile hardening и sound toggle. В `after` нет WARN/FAIL. Два пункта остаются `NOT VERIFIED`: timing первого paint в headless-тесте и Canvas-текст, который нельзя доказать DOM-сканированием. Они не маскируются под предупреждения.
 
@@ -115,7 +115,7 @@ window.YGDebugCheckerConfig = {
 
 ## Официальные источники
 
-На момент аудита 11 августа 2026 года использовались:
+Аудит требований обновлён 1 сентября 2026 года. Основные официальные источники:
 
 - Требования к игре: https://yandex.ru/dev/games/doc/ru/concepts/requirements
 - Модерация: https://yandex.ru/dev/games/doc/ru/concepts/moderation

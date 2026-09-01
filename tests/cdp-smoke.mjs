@@ -90,10 +90,10 @@ while (Date.now() < panelDeadline) {
 if (!(await evaluate("!!document.querySelector('.dc-sum')"))) throw new Error('checker panel did not render');
 
 const checks = {
-  title: "document.body.innerText.includes('Yandex Games Debug Checker v1.1.0')",
+  title: "document.body.innerText.includes('Yandex Games Debug Checker v1.1.1')",
   notice: "document.body.innerText.includes('Unofficial pre-submit checker')",
   'req-label': "document.body.innerText.includes('REQ 1.19.2')",
-  'public-api': "window.YGDebugChecker && window.YGDebugChecker.version === '1.1.0'",
+  'public-api': "window.YGDebugChecker && window.YGDebugChecker.version === '1.1.1'",
   'sdk-ready': "window.__readyCalled === true",
   'runtime-caught-ready': "window.__dbg && window.__dbg.TIMING && window.__dbg.TIMING.gameReady > 0",
   'runtime-i18n': "window.__dbg && window.__dbg.RT && window.__dbg.RT._i18nRead === true",

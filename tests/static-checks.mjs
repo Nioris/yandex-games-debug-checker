@@ -24,7 +24,7 @@ vm.runInContext(catsCode, sandbox, { filename: 'debugcheck-CATS.js' });
 const cats = sandbox.__CATS;
 
 const all = cats.flatMap(cat => cat.checks.map(check => ({ cat, check })));
-assert.equal(all.length, 93, 'public release check count');
+assert.equal(all.length, 99, 'public release check count');
 
 function get(name, catId) {
   const matches = all.filter(x => x.check.name === name && (!catId || x.cat.id === catId));
@@ -36,6 +36,20 @@ assert.equal(get('SDK script tag').test('<head><script src="/sdk.js"></script></
 assert.equal(get('SDK script tag').test('<head></head>'), false);
 assert.equal(get('YaGames.init()').test('YaGames.init().then(() => {})'), true);
 assert.equal(get('LoadingAPI.ready()').test('ysdk.features.LoadingAPI.ready()'), true);
+assert.equal(get('Sound stops on focus loss (п.1.3)').test("const a=new AudioContext();document.addEventListener('visibilitychange',()=>a.suspend());"), true);
+assert.equal(get('Sound stops on focus loss (п.1.3)').test("const a=new AudioContext();playMusic();"), 'warn');
+assert.equal(get('No third-party auth markers (п.1.2)').test("firebase.auth().signInWithPopup(provider)"), 'warn');
+assert.equal(get('No third-party auth markers (п.1.2)').test("ysdk.auth.openAuthDialog()"), true);
+assert.equal(get('Yandex auth starts from user action (п.1.2.1)').test("button.addEventListener('click',()=>ysdk.auth.openAuthDialog())"), true);
+assert.equal(get('Yandex auth starts from user action (п.1.2.1)').test("ysdk.auth.openAuthDialog()"), 'warn');
+assert.equal(get('Auth benefits explained (п.1.2.1)').test("ysdk.auth.openAuthDialog()").pass, 'not_verified');
+assert.equal(get('Guest play available (п.1.2)').test("ysdk.auth.openAuthDialog()").pass, 'not_verified');
+assert.equal(get('Keyboard control independent of layout (п.1.6.2.4)').test("addEventListener('keydown',e=>{if(e.key==='w')move()})"), 'warn');
+assert.equal(get('Keyboard control independent of layout (п.1.6.2.4)').test("addEventListener('keydown',e=>{if(e.code==='KeyW')move()})"), true);
+assert.equal(get('Progress preserved after orientation change (п.1.9)').test("<meta name='viewport'> window.addEventListener('orientationchange',resize)").pass, 'not_verified');
+assert.equal(get('Monetization present or explicitly waived (п.1.12)').test("const x=1").pass, 'not_verified');
+assert.equal(get('Monetization present or explicitly waived (п.1.12)').test("ysdk.adv.showFullscreenAdv({callbacks:{}})"), true);
+assert.equal(get('Game looks finished, not WIP (п.1.15)').test("<div>Play</div>").pass, 'not_verified');
 assert.equal(get('environment.i18n.lang').test('const lang = ysdk.environment.i18n.lang;').pass, 'not_verified');
 assert.equal(get('No URL-based gating (п.1.18)').test("if (location.host === 'example.com') start();"), false);
 assert.equal(get('No YouTube/external video player (п.3.9)').test('<iframe src="https://youtube.com/embed/x"></iframe>'), false);

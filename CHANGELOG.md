@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.1 — 2026-09-01
+
+- Re-audited public checks against the August 2026 Yandex Games documentation updates.
+- Added conservative checks/reminders for REQ 1.2/1.2.1 authorization, REQ 1.9 orientation progress and REQ 1.12 monetization.
+- Strengthened REQ 1.3 focus-loss sound detection and mapped keyboard-layout checks to REQ 1.6.2.4.
+- Updated canvas/orientation handling to current REQ 1.10 wording.
+- Made REQ 1.15 completeness conservative: obvious WIP is WARN; otherwise overall completeness remains NOT VERIFIED.
+- Improved REQ 4.4 runtime timing to use the interstitial `onOpen` callback when available instead of equating the SDK call with the actual ad start.
+
 ## 1.1.0 — 2026-08-11
 
 - Added a distinct **NOT VERIFIED** state so lack of automatic evidence is no longer reported as WARN.

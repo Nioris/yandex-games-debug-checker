@@ -1,5 +1,5 @@
 /**
- * Yandex Games Debug Checker — public release v1.1.0
+ * Yandex Games Debug Checker — public release v1.1.1
  * --------------------------------------------------
  * Unofficial, dependency-free pre-submission checker for Yandex Games.
  * Derived from an internal v2.22 checker and reviewed for public use in Aug 2026.
@@ -45,7 +45,7 @@ function togglePanel(){
 
 // Public API for automation, smoke tests and custom launch buttons.
 window.YGDebugChecker={
-  version:'1.1.0',
+  version:'1.1.1',
   open:function(){if(!_panel||!_visible)togglePanel();else runChecks();},
   close:function(){if(_panel){_visible=false;_panel.style.display='none';}},
   refresh:function(){if(!_panel){togglePanel();}else{_visible=true;_panel.style.display='flex';runChecks();}}
@@ -125,17 +125,31 @@ function _patchYSDK(sdk){
         return _s.apply(this,arguments);
       };
     }
-    // Patch showFullscreenAdv
+    // Patch showFullscreenAdv. Record both SDK-call timing and, when the game
+    // provides callbacks.onOpen, the actual ad-open callback timing.
     if(sdk.adv&&sdk.adv.showFullscreenAdv){
       var _f=sdk.adv.showFullscreenAdv;
       sdk.adv.showFullscreenAdv=function(cfg){
         var now=performance.now();
         var gestureDelta=TIMING.lastUserGesture?(now-TIMING.lastUserGesture):Infinity;
-        TIMING.adCalls.push({type:'interstitial',time:now,gestureDelta:gestureDelta});
+        var rec={type:'interstitial',time:now,gestureDelta:gestureDelta};
+        TIMING.adCalls.push(rec);
         if(!TIMING.firstInterstitial)TIMING.record('firstInterstitial');
+        try{
+          if(cfg&&cfg.callbacks){
+            var _onOpen=cfg.callbacks.onOpen;
+            cfg.callbacks.onOpen=function(){
+              var opened=performance.now();
+              rec.openTime=opened;
+              rec.openDelayFromCall=opened-now;
+              rec.openDelayFromGesture=TIMING.lastUserGesture?(opened-TIMING.lastUserGesture):Infinity;
+              if(typeof _onOpen==='function')return _onOpen.apply(this,arguments);
+            };
+          }
+        }catch(_adPatchErr){}
         if(!TIMING.firstUserClick||gestureDelta>330){
-          TIMING.log.push({event:'AD_WITHOUT_GESTURE',time:now,gestureDelta:Math.round(gestureDelta),warning:'Interstitial has no recent (<=330ms) user gesture — verify placement context under REQ-4.4; long real-time levels may use timer ads with warning + pause'});
-          console.warn('[DBG] showFullscreenAdv has no recent user gesture ('+Math.round(gestureDelta)+'ms) — verify REQ-4.4 placement context; timer ads can be valid in long real-time gameplay');
+          TIMING.log.push({event:'AD_SDK_CALL_CONTEXT_RISK',time:now,gestureDelta:Math.round(gestureDelta),warning:'showFullscreenAdv SDK call was not close to a recent user gesture. This is only a placement-context signal; actual ad-start delay is measured from onOpen when available.'});
+          console.warn('[DBG] showFullscreenAdv SDK call is '+Math.round(gestureDelta)+'ms after the last user gesture — review REQ-4.4 placement context; timer ads can be valid in long real-time gameplay');
         }
         return _f.apply(this,arguments);
       };
@@ -287,9 +301,39 @@ var CATS=[
     {name:'LoadingAPI.ready()',desc:'п.1.19.2 — called when the game becomes interactive',
       test:function(s){return pat(s,/LoadingAPI[\s\S]{0,4}ready\s*\(/);}},
   ]},
+  {id:'auth',title:'Authorization',icon:'\u{1F510}',checks:[
+    {name:'No third-party auth markers (п.1.2)',desc:'п.1.2 — only Yandex ID authorization is allowed; third-party login must not be required',
+      test:function(s){
+        var bad=pat(s,/firebase\s*\.\s*auth|signInWithPopup|accounts\.google\.com|google(?:apis)?\.com\/oauth|facebook\.com\/[^\s"']*oauth|vk\.com\/[^\s"']*oauth|discord\.com\/[^\s"']*oauth|auth0|loginWith(?:Google|Facebook|VK|Discord)|OAuthProvider/i);
+        return bad?'warn':true;
+      },warnText:'Possible third-party authorization code was found. REQ 1.2 allows only Yandex ID authorization requested through the Yandex Games SDK. Remove/disable third-party login in the Yandex build or verify this is a false match.'},
+    {name:'Yandex auth starts from user action (п.1.2.1)',desc:'п.1.2.1 — ysdk.auth.openAuthDialog() is requested only after a deliberate user action',
+      test:function(s){
+        if(!pat(s,/\.auth\.openAuthDialog\s*\(/))return true;
+        var directHandler=pat(s,/(?:addEventListener\s*\(\s*['"](?:click|pointerup|pointerdown|touchend)|onclick\s*=)[\s\S]{0,1600}\.auth\.openAuthDialog\s*\(/i);
+        var namedHandler=pat(s,/function\s+\w*(?:auth|login|signIn)\w*\s*\([^)]*\)\s*\{[\s\S]{0,900}\.auth\.openAuthDialog\s*\(/i);
+        return (directHandler||namedHandler)?true:'warn';
+      },warnText:'Yandex auth dialog is used, but static analysis could not prove that it is called from a dedicated click/tap action. REQ 1.2.1 forbids automatic authorization prompts on startup. Verify the call is reachable only from an explicit login button.'},
+    {name:'Auth benefits explained (п.1.2.1)',desc:'п.1.2.1 — the authorization offer explains what the player gains',
+      test:function(s){
+        if(!pat(s,/\.auth\.openAuthDialog\s*\(/))return true;
+        return {pass:'not_verified',details:'Authorization is present. Static analysis cannot reliably judge whether the visible login offer explains its benefits; verify the copy manually before moderation.'};
+      }},
+    {name:'Guest play available (п.1.2)',desc:'п.1.2 — the game remains usable without authorization',
+      test:function(s){
+        if(!pat(s,/\.auth\.openAuthDialog\s*\(/))return true;
+        return {pass:'not_verified',details:'Authorization is present. Verify that declining/skipping Yandex ID still leaves a guest entry or a playable game flow.'};
+      }},
+  ]},
   {id:'sound',title:'Sound Management',optional:true,icon:'\u{1F50A}',checks:[
-    {name:'visibilitychange',desc:'Mute when tab hidden',
-      test:function(s){return pat(s,/visibilitychange/);}},
+    {name:'Sound stops on focus loss (п.1.3)',desc:'п.1.3 — sound stops on browser/app focus loss; a delay up to 2 seconds is allowed',
+      test:function(s){
+        var hasAudio=pat(s,/AudioContext|webkitAudioContext|new\s+Audio\s*\(|<audio\b|Howl\s*\(|sound|music/i);
+        if(!hasAudio)return true;
+        var hasFocusHook=pat(s,/visibilitychange|pagehide|(?:window|document)\.addEventListener\s*\(\s*['"]blur/i);
+        var hasStop=pat(s,/\.suspend\s*\(|\.pause\s*\(|muted\s*=\s*true|volume\s*=\s*0|mute(?:All|Audio|Sound)|pause(?:All|Audio|Sound)|stop(?:All|Audio|Sound)/i);
+        return (hasFocusHook&&hasStop)?true:'warn';
+      },warnText:'Sound code was found, but static analysis could not prove a focus-loss handler that stops or mutes audio. REQ 1.3 now covers minimizing the browser/app, switching to another tab, and the browser tab switcher; stopping within 2 seconds is allowed. Verify all three cases manually.'},
     {name:'AudioContext suspend/resume',desc:'AC.suspend() + AC.resume()',
       test:function(s){return(pat(s,/\.suspend\s*\(/)||pat(s,/suspendAudio/))&&(pat(s,/\.resume\s*\(/)||pat(s,/resumeAudio/));}},
   ]},
@@ -652,13 +696,13 @@ var CATS=[
         var r = Math.max(w,h)/Math.min(w,h);
         return r > 2.2 ? 'warn' : true;
       },warnText:'A canvas/stage is hard-coded to an aspect ratio worse than 2:1 — desktop requirement 1.6.2.2 caps the long side at 2× the short side. Let the field scale to the window (Probe F also checks the live ratio).'},
-    {name:'Нет debug-инструментов в UI (п.1.15)',desc:'Поля сида, выбор поведения ИИ, скорость хода, «Заново», панели замеров в релизной сборке = игра выглядит незавершённой.',
+    {name:'Нет debug-инструментов в UI (п.1.15)',desc:'Поля сида, выбор поведения ИИ, скорость хода и панели замеров в релизной сборке могут показывать незавершённость игры.',
       test:function(s){
         var hits = 0;
         if (pat(s,/>\s*(сид|seed)\s*</i)) hits++;
         if (pat(s,/замер механики|debug panel|дебаг|отладк/i)) hits++;
         if (pat(s,/<select[^>]*>[\s\S]{0,200}(стратег|случайн|агрессивн)/i)) hits++;
-        if (pat(s,/>\s*(Заново|Reset seed|Подсказка: (вкл|выкл))\s*</i)) hits++;
+        if (pat(s,/>\s*(Reset seed|Подсказка: (вкл|выкл))\s*</i)) hits++;
         return hits >= 2 ? 'warn' : true;
       },warnText:'Похоже, в билде остались инструменты разработчика (сид / выбор ИИ / скорость хода / панель замеров). Спрячь под ?debug=1 — иначе модерация видит WIP (п.1.15).'},
     {name:'Ввод закрыт до ready() (REQ-1.19)',desc:'Игра не должна принимать клики/клавиши, пока не вызван LoadingAPI.ready(): модератор кликами проскакивает загрузку → отказ 1.19.',
@@ -667,14 +711,14 @@ var CATS=[
         var gate = pat(s,/inputEnabled|inputLocked|acceptInput|canPlay|isReady|readyFired/i);
         return gate ? true : 'warn';
       },warnText:'Обработчики ввода вешаются без видимого гейта (inputEnabled/isReady и т.п.). Проверь рантайм-строку «ВВОД ПРИНЯТ ДО ready()» в консоли: если клик проходит раньше ready(), это отказ по 1.19.'},
-    {name:'Keyboard via e.code, not e.key (ru-раскладка)',desc:'Управление через e.key==="w" ломается в русской раскладке (там "ц"). Движение — только e.code==="KeyW" (физическая клавиша).',
+    {name:'Keyboard control independent of layout (п.1.6.2.4)',desc:'п.1.6.2.4 — desktop gameplay controls must not depend on the active keyboard layout; physical letter controls should use KeyboardEvent.code.',
       test:function(s){
-        if(!pat(s,/keydown|keyup/i))return true; // нет клавиатуры → N/A
-        var badKey = pat(s,/\.key\s*(===?|==)\s*['"][wasd]['"]/i) || pat(s,/case\s*['"][wasd]['"]\s*:/i);
+        if(!pat(s,/keydown|keyup/i))return true;
+        var badKey = pat(s,/\.key\s*(===?|==)\s*['"][wasdqe]['"]/i) || pat(s,/case\s*['"][wasdqe]['"]\s*:/i);
         if(!badKey)return true;
-        var hasCode = pat(s,/\.code\s*(===?|==)\s*['"]Key[WASD]['"]/);
+        var hasCode = pat(s,/\.code\s*(===?|==)\s*['"]Key[WASDQE]['"]/);
         return hasCode ? true : 'warn';
-      },warnText:'Найдено сравнение e.key с "w/a/s/d" без e.code — в русской раскладке управление МЕРТВО (e.key даёт "ц"). Замени на e.code==="KeyW" и т.д. (физические клавиши, любая раскладка) + продублируй стрелками.'},
+      },warnText:'Letter controls appear to rely on KeyboardEvent.key (for example W/A/S/D). REQ 1.6.2.4 now explicitly requires desktop controls to work regardless of keyboard layout. Prefer KeyboardEvent.code (KeyW/KeyA/...) for physical controls and keep Arrow* keys where appropriate.'},
     {name:'No OS-shortcut key handlers (п.1.6.2.6)',desc:'Desktop games must not bind Ctrl/Alt/Meta+key combos that collide with OS/browser shortcuts.',
       test:function(s){
         // WARN if a keydown handler checks ctrlKey/metaKey/altKey together with a letter key (likely an OS combo).
@@ -692,12 +736,11 @@ var CATS=[
         var hasAtmo = pat(s,/(body|html|::before|#bg|\.bg)[^}]{0,200}(gradient|background-image|url\()/i);
         return hasAtmo ? true : 'warn';
       },warnText:'Центрированное поле фиксированной ширины + чисто-чёрный body без градиента/паттерна/арта — на широком десктопе игра выглядит «квадратом в пустоте» (1.6.2.1: поле растягивается до края; рантайм-чек Canvas fills screen тоже упадёт). Реши по visual-upgrade Step 0.7: боковые панели на ≥1200px, либо атмосферный фон (radial-gradient палитры + тематический паттерн + виньетка).'},
-    {name:'Game looks finished, not WIP (п.1.15)',desc:'No "in development / coming soon / TODO / placeholder" text visible in the UI.',
+    {name:'Game looks finished, not WIP (п.1.15)',desc:'Flags obvious development/placeholder UI. A clean static scan cannot prove that all texts, graphics, controls and mechanics are complete.',
       test:function(s){
-        // Scan visible-ish text for dev placeholders. Conservative word list to avoid false hits.
         if(pat(s,/coming soon|work in progress|under construction|в разработке|скоро здесь|здесь будет|placeholder text|lorem ipsum|тут будет|TODO:.{0,40}<\//i)) return 'warn';
-        return true;
-      },warnText:'The build shows development/placeholder text ("coming soon / в разработке / lorem ipsum / здесь будет"). Yandex rejects games that look unfinished (п.1.15). Remove placeholder copy and stub screens.'},
+        return {pass:'not_verified',details:'No obvious WIP placeholder text was found, but REQ 1.15 now explicitly requires the whole game to be finished: texts, graphics, controls and gameplay mechanics. Review the complete build manually.'};
+      },warnText:'The build shows development/placeholder text ("coming soon / в разработке / lorem ipsum / здесь будет"). REQ 1.15 requires a finished game with complete texts, graphics, controls and mechanics. Remove placeholder copy and stub screens.'},
     {name:'No imitation ad blocks (п.1.16)',desc:'Game must not fake Yandex ad blocks (custom fullscreen "interstitial"/"RV" UI with its own buttons).',
       test:function(s){
         // WARN if there is a custom element literally labelled as an ad block with its own close/skip button,
@@ -758,21 +801,21 @@ var CATS=[
         var ruBlya = /(^|[^а-яё])бля([^а-яё]|$)/i;
         return (en.test(s) || ru.test(s) || ruBlya.test(s)) ? 'warn' : true;
       },warnText:'Possible profanity detected in the source/UI text (п.8.2.4 — no obscene language in any language). Review and replace; if it is a false match (clean homograph), ignore.'},
-    {name:'Canvas resizes on orientation change (п.1.6.1.3/1.10.1)',desc:'A <canvas>/WebGL game must re-fit on orientationchange + fullscreenchange, not only window resize — else it deforms / clips on mobile rotate & fullscreen-exit',
+    {name:'Canvas adapts to resize/orientation (п.1.10)',desc:'п.1.10 — the game must remain correctly displayed after window resize and screen rotation.',
       test:function(s){
-        // Only relevant to canvas/WebGL games that have a resize handler.
-        if(!pat(s,/<canvas|getContext\s*\(\s*("|')(webgl|2d)|THREE\.|renderer\.setSize/i))return true; // not a canvas game → N/A
-        var bindsResize=pat(s,/addEventListener\s*\(\s*("|')resize/);
-        if(!bindsResize)return true; // no resize handling at all — different problem, not this check
-        // It binds window.resize; does it ALSO handle orientationchange OR fullscreenchange OR a
-        // ResizeObserver / visualViewport listener (any of which catches mobile rotate/fullscreen-exit)?
-        var handlesOrientation = pat(s,/orientationchange/)
-                               || pat(s,/fullscreenchange/)
-                               || pat(s,/screen\.orientation/)
-                               || pat(s,/ResizeObserver/)
-                               || pat(s,/visualViewport/);
-        return handlesOrientation ? true : 'warn';
-      },warnText:'Canvas game binds window "resize" but not orientationchange/fullscreenchange. On mobile, rotating or exiting fullscreen may not fire resize in time → the scene clips (п.1.10.1) or deforms (п.1.6.1.3). Add: window.addEventListener("orientationchange", resize) and a fullscreenchange handler (or a ResizeObserver on the canvas container).'},
+        if(!pat(s,/<canvas|getContext\s*\(\s*("|')(webgl|2d)|THREE\.|renderer\.setSize/i))return true;
+        var adaptive = pat(s,/addEventListener\s*\(\s*("|')(resize|orientationchange|fullscreenchange)/i)
+                    || pat(s,/screen\.orientation|ResizeObserver|visualViewport/i)
+                    || pat(s,/canvas[^{}]{0,220}(?:width|height)\s*:\s*(?:100%|100vw|100vh)/i)
+                    || pat(s,/renderer\.setSize\s*\(\s*(?:window\.)?innerWidth/i);
+        return adaptive ? true : 'warn';
+      },warnText:'Canvas/WebGL content was found, but no clear adaptive resize/orientation handling was detected. REQ 1.10 now explicitly covers both window resizing and screen rotation. Verify portrait↔landscape and desktop resize without clipping, overlap, page scroll or broken canvas sizing.'},
+    {name:'Progress preserved after orientation change (п.1.9)',desc:'п.1.9 — on mobile, meaningful game progress must not be lost when device orientation changes.',
+      test:function(s){
+        var mobile=pat(s,/orientationchange|screen\.orientation|visualViewport|touchstart|viewport-fit|user-scalable|maximum-scale/i);
+        if(!mobile)return true;
+        return {pass:'not_verified',details:'Static analysis cannot prove that the exact in-game state survives portrait↔landscape rotation. Make meaningful progress, rotate the device, and verify that state/progress is preserved.'};
+      }},
     {name:'ready() not tuned to pass the checker (integrity)',desc:'No magic delay / debugcheck-targeting right before ready() — ready() must reflect real interactivity, not a tuned timer',
       test:function(s){
         // Anti-gaming: a fixed setTimeout immediately before LoadingAPI.ready(), or a comment
@@ -789,6 +832,12 @@ var CATS=[
         // Heuristic: if interstitial is used, a save (setData/saveProgress/localStorage write) should exist too.
         if(!pat(s,/showFullscreenAdv/))return true; // no interstitial → N/A
         return pat(s,/setData\s*\(|saveProgress|saveGame|player\.setData/);
+      }},
+    {name:'Monetization present or explicitly waived (п.1.12)',desc:'п.1.12 — the game has Yandex ads or in-app purchases, unless monetization is intentionally disabled and stated in the Draft developer comment.',
+      test:function(s){
+        var hasMonetization=pat(s,/showFullscreenAdv|showRewardedVideo|StickyAdv|BannerAdv|getPayments\s*\(|purchase\s*\(|getCatalog\s*\(/i);
+        if(hasMonetization)return true;
+        return {pass:'not_verified',details:'No ad/IAP markers were found in the scanned game source. This can be valid under REQ 1.12 only when monetization is intentionally disabled and that decision is written in the Draft developer comment.'};
       }},
     {name:'No external ad networks',desc:'п.4.1 — only Yandex SDK ads (checks game source only)',
       test:function(s){
@@ -1063,15 +1112,17 @@ var CATS=[
 
   // ===== v2.4 RUNTIME PROBES =====
   {id:'ad_context_runtime',title:'Ad Context (Runtime)',optional:true,icon:'\u{1F4FA}',checks:[
-    {name:'Interstitial placement context (REQ-4.4)',desc:'Gesture-triggered ads should start within 0.33s; long real-time levels may use timer ads with warning + pause',
+    {name:'Interstitial start delay (REQ-4.4)',desc:'When callbacks.onOpen is observable, measure the real ad-open callback against the triggering user action; the documented limit is 0.33s.',
       test:function(){
         if(!TIMING.adCalls||TIMING.adCalls.length===0)return {pass:'not_verified',details:'No interstitial observed in this session'};
-        var bad=TIMING.adCalls.filter(function(c){return c.type==='interstitial'&&c.gestureDelta>330;});
+        var calls=TIMING.adCalls.filter(function(c){return c.type==='interstitial';});
+        var measured=calls.filter(function(c){return Number.isFinite(c.openDelayFromGesture);});
+        if(measured.length===0)return {pass:'not_verified',details:'Interstitial SDK call observed, but callbacks.onOpen was not observable, so the actual ad-start delay could not be measured.'};
+        var bad=measured.filter(function(c){return c.openDelayFromGesture>330;});
         if(bad.length===0)return true;
-        RT._adWithoutGesture=bad;
+        RT._adStartDelayRisk=bad;
         return 'warn';
-      },warnText:'No interstitial observed, or placement needs context review. Under REQ-4.4, 0.33s applies to gesture-triggered ads; timer ads may be valid in long real-time levels when gameplay is paused and a 2-second warning is shown.',
-      failText:'Interstitial placement needs manual REQ-4.4 review. Check RT._adWithoutGesture'},
+      },warnText:'Observed interstitial onOpen more than 0.33s after the triggering user action in this run. Yandex recommends checking the delay on the usual device, in incognito, and on another device before concluding it is reproducible. Also verify the ad appears only at a valid logical pause.'},
     {name:'All rewarded videos follow user gesture (REQ-4.5)',desc:'showRewardedVideo must be user-initiated',
       test:function(){
         if(!TIMING.adCalls||TIMING.adCalls.length===0)return {pass:'not_verified',details:'No rewarded video observed in this session'};
@@ -1488,7 +1539,7 @@ function createPanel(){
   _panel.innerHTML='<div class="dc-panel">'
     +'<div class="dc-head">'
     +'<span class="dc-hico">\u{1F3AE}</span>'
-    +'<h2>Yandex Games Debug Checker v1.1.0</h2>'
+    +'<h2>Yandex Games Debug Checker v1.1.1</h2>'
     +'<button class="dc-hbtn dc-copy" title="Copy report">\u{1F4CB}</button>'
     +'<button class="dc-hbtn dc-refresh" title="Re-check">\u{1F504}</button>'
     +'<button class="dc-close" title="Close">\u2715</button>'

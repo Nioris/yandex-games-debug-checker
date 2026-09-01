@@ -100,7 +100,7 @@ if (mode === 'after') {
   }
   if (!(await evaluate("window.__orcDemoPlatform && window.__orcDemoPlatform.ready === true"))) throw new Error('platform bootstrap did not complete');
   const assertions = {
-    'checker-api': "window.YGDebugChecker && window.YGDebugChecker.version === '1.1.0'",
+    'checker-api': "window.YGDebugChecker && window.YGDebugChecker.version === '1.1.1'",
     'start-enabled': "document.getElementById('bstart').disabled === false",
     'sdk-init': "window.__mockYandexEvents.some(e=>e.name==='YaGames.init')",
     'game-ready': "window.__mockYandexEvents.some(e=>e.name==='LoadingAPI.ready')",
