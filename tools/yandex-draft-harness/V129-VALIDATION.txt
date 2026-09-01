@@ -1,0 +1,17 @@
+v1.2.9 upgrader node --check: PASS
+v1.2.9 upgrader self-test: PASS
+v1.2.9 synthetic generated candidate node --check: PASS
+All upgrader self-tests v1.2.0 -> v1.2.9: PASS
+Harness self-test: PASS
+Evidence schemaVersion 2: PASS
+Auth before any input -> FAIL_CONFIRMED_AUTH_BEFORE_INPUT: PASS
+Focus loss + AudioContext.suspend within 2s -> PASS_RUNTIME_WITHIN_2S: PASS
+Resize/orientation + clean final probes -> PASS_RUNTIME_AFTER_VIEWPORT_CHANGE: PASS
+Orientation progress remains MANUAL/NOT VERIFIED: PASS
+Runtime monetization evidence -> FEATURE_OBSERVED_RUNTIME: PASS
+Interstitial timing uses callbacks.onOpen -> PASS_RUNTIME_MEASURED: PASS
+Node.js 22+ preflight: PRESENT
+Python/pip/websocket-client dependency: NOT USED
+Machine-specific absolute paths: REMOVED
+Example App ID: 568867
+Report naming: reports/<APP_ID>_<DATE>_<TIME>
