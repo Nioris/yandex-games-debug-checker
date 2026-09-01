@@ -1,0 +1,90 @@
+name: Apply Aug 2026 static checker rules v2
+
+on:
+  push:
+    branches:
+      - feature/static-checker-rules-2026-08
+    paths:
+      - .github/workflows/patch-static-checker-2026-08-v2.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Extract verified patch scripts
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          src = Path('.github/workflows/patch-static-checker-2026-08.yml').read_text(encoding='utf-8').splitlines()
+          blocks=[]
+          i=0
+          while i < len(src):
+              if "python3 - <<'PY'" in src[i]:
+                  i += 1
+                  lines=[]
+                  while i < len(src) and src[i].strip() != 'PY':
+                      lines.append(src[i])
+                      i += 1
+                  blocks.append(textwrap.dedent('\n'.join(lines)) + '\n')
+              i += 1
+
+          if len(blocks) != 2:
+              raise SystemExit(f'expected 2 embedded Python blocks, found {len(blocks)}')
+          Path('/tmp/rules-patch.py').write_text(blocks[0], encoding='utf-8')
+          Path('/tmp/report-sync.py').write_text(blocks[1], encoding='utf-8')
+          print('extracted patch scripts:', len(blocks))
+          PY
+
+      - name: Apply rules patch and syntax fix
+        shell: bash
+        run: |
+          python3 /tmp/rules-patch.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('debugcheck.js')
+          s=p.read_text(encoding='utf-8')
+          old="      }}\n    {name:'ready() not tuned to pass the checker (integrity)'"
+          new="      }},\n    {name:'ready() not tuned to pass the checker (integrity)'"
+          if s.count(old) != 1:
+              raise SystemExit(f'orientation comma anchor count: {s.count(old)}')
+          p.write_text(s.replace(old,new,1),encoding='utf-8',newline='\n')
+          PY
+          node --check debugcheck.js
+
+      - name: Run full audit and browser regressions
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run audit | tee /tmp/audit.log
+
+      - name: Sync reports and revalidate
+        shell: bash
+        run: |
+          python3 /tmp/report-sync.py
+          npm test
+          node scripts/build-pages.mjs
+          git diff --check
+
+      - name: Commit verified changes
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- debugcheck.js checks.csv package.json CHANGELOG.md README.md README.en.md docs/checks.md docs/manual-checklist.md docs/audit-2026-09-01.md tests/static-checks.mjs tests/cdp-smoke.mjs tests/orc-castle-smoke.mjs tests/example-static.mjs scripts/audit.mjs examples/orc-castle/reports/before.json examples/orc-castle/reports/after.json site
+          git status --short
+          git commit -m "Update checker for Aug 2026 Yandex rules"
+          git push origin HEAD:feature/static-checker-rules-2026-08
