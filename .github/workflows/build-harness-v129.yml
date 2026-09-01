@@ -1,0 +1,131 @@
+name: Build Runtime Harness v1.2.9 bundle
+
+on:
+  push:
+    branches:
+      - experimental/runtime-harness-v1.2
+    paths:
+      - .github/workflows/build-harness-v129.yml
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Reconstruct v1.2.8 bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/v129-work
+          cat tools/yandex-draft-harness/bundle/yg-yandex-draft-harness-v1.2.8-test.zip.b64.* \
+            | tr -d '\r\n' | base64 -d > /tmp/v128.zip
+          echo "87f64a93262589f39eb0c92253e8f756d38f848dcef392fd8de436ac2d7a340a  /tmp/v128.zip" | sha256sum -c -
+          unzip -q /tmp/v128.zip -d /tmp/v129-work
+
+      - name: Apply verified v1.2.9 patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat tools/yandex-draft-harness/.v129-patch.part0 \
+              tools/yandex-draft-harness/.v129-patch.part1 \
+              tools/yandex-draft-harness/.v129-patch.part2 \
+            | base64 -d | gzip -d > /tmp/v129.patch
+          cd /tmp/v129-work
+          git init -q
+          git apply --whitespace=nowarn /tmp/v129.patch
+          rm -rf .git
+
+      - name: Validate v1.2.9 sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/v129-work
+          while IFS= read -r -d '' f; do node --check "$f"; done < <(find . -name '*.mjs' -print0)
+          node build-debugcheck-v1.2-test.mjs --self-test
+          node upgrade-debugcheck-v1.2-to-v1.2.1.mjs --self-test
+          node upgrade-debugcheck-v1.2.1-to-v1.2.2.mjs --self-test
+          node upgrade-debugcheck-v1.2.2-to-v1.2.3.mjs --self-test
+          node upgrade-debugcheck-v1.2.3-to-v1.2.4.mjs --self-test
+          node upgrade-debugcheck-v1.2.4-to-v1.2.5.mjs --self-test
+          node upgrade-debugcheck-v1.2.5-to-v1.2.6.mjs --self-test
+          node upgrade-debugcheck-v1.2.6-to-v1.2.7.mjs --self-test
+          node upgrade-debugcheck-v1.2.7-to-v1.2.8.mjs --self-test
+          node upgrade-debugcheck-v1.2.8-to-v1.2.9.mjs --self-test
+          node yg-yandex-draft-harness-passive.mjs --self-test
+          if grep -RniE '[A-Za-z]:\\' . --include='*.ps1' --include='*.md' --include='*.txt' --include='*.json'; then
+            echo 'Machine-specific absolute Windows path found.' >&2
+            exit 1
+          fi
+          if grep -RniE 'Checking websocket-client|Installing websocket-client|pip[[:space:]]+install' . --include='*.ps1' --include='*.bat' --include='*.mjs'; then
+            echo 'Legacy Python/websocket installer logic found in executable scripts.' >&2
+            exit 1
+          fi
+
+      - name: Build reproducible repository bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64, hashlib, re, zipfile
+
+          src = Path('/tmp/v129-work')
+          out = Path('/tmp/yg-yandex-draft-harness-v1.2.9-test.zip')
+          with zipfile.ZipFile(out, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as z:
+              for p in sorted(x for x in src.rglob('*') if x.is_file()):
+                  zi = zipfile.ZipInfo(p.relative_to(src).as_posix(), date_time=(2026, 9, 1, 20, 0, 0))
+                  zi.compress_type = zipfile.ZIP_DEFLATED
+                  zi.external_attr = 0o100644 << 16
+                  z.writestr(zi, p.read_bytes(), compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
+
+          data = out.read_bytes()
+          sha = hashlib.sha256(data).hexdigest()
+          print('v1.2.9 zip sha256:', sha)
+
+          bundle = Path('tools/yandex-draft-harness/bundle')
+          for p in bundle.glob('yg-yandex-draft-harness-v1.2.8-test.zip.b64.*'):
+              p.unlink()
+          for p in bundle.glob('yg-yandex-draft-harness-v1.2.9-test.zip.b64.*'):
+              p.unlink()
+
+          encoded = base64.b64encode(data).decode('ascii')
+          for i, start in enumerate(range(0, len(encoded), 16000), 1):
+              (bundle / f'yg-yandex-draft-harness-v1.2.9-test.zip.b64.{i:03d}').write_text(encoded[start:start+16000], encoding='ascii')
+
+          installer = Path('tools/yandex-draft-harness/INSTALL-BUNDLE.ps1')
+          text = installer.read_text(encoding='utf-8')
+          text, n = re.subn(r'\$expectedSha256 = "[0-9a-f]{64}"', f'$expectedSha256 = "{sha}"', text, count=1)
+          if n != 1:
+              raise SystemExit('installer SHA anchor not found')
+          installer.write_text(text, encoding='utf-8', newline='\n')
+
+          parts = sorted(bundle.glob('yg-yandex-draft-harness-v1.2.9-test.zip.b64.*'))
+          rebuilt = base64.b64decode(''.join(p.read_text(encoding='ascii').strip() for p in parts))
+          if hashlib.sha256(rebuilt).hexdigest() != sha:
+              raise SystemExit('repository chunks do not reconstruct the generated ZIP')
+          print('bundle chunks:', len(parts), 'reconstruction: PASS')
+          PY
+
+      - name: Commit verified bundle and remove temporary builder
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f tools/yandex-draft-harness/.v129-patch.part0 \
+                tools/yandex-draft-harness/.v129-patch.part1 \
+                tools/yandex-draft-harness/.v129-patch.part2 \
+                .github/workflows/build-harness-v129.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Update Runtime Harness to v1.2.9-test"
+          git push origin HEAD:experimental/runtime-harness-v1.2

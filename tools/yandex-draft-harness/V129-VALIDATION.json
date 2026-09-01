@@ -1,0 +1,21 @@
+{
+  "version": "1.2.9-test",
+  "node_runtime_required": "22+",
+  "python_pip_websocket_client_required": false,
+  "node_syntax_all_mjs": true,
+  "upgrader_self_tests_v120_to_v129": true,
+  "harness_self_test": true,
+  "v129_synthetic_upgrade_node_check": true,
+  "evidence_schema_version": 2,
+  "august_2026_regressions": {
+    "authorization_before_input": "FAIL_CONFIRMED_AUTH_BEFORE_INPUT",
+    "focus_audio_within_2s": "PASS_RUNTIME_WITHIN_2S",
+    "display_after_viewport_change": "PASS_RUNTIME_AFTER_VIEWPORT_CHANGE",
+    "orientation_progress": "MANUAL_STATE_VERIFY_AFTER_ORIENTATION",
+    "monetization_runtime": "FEATURE_OBSERVED_RUNTIME",
+    "ad_start_delay_onOpen": "PASS_RUNTIME_MEASURED"
+  },
+  "portable_profile": ".\\yg-debug-profile",
+  "app_example": "568867",
+  "report_pattern": "reports\\<APP_ID>_<YYYY-MM-DD>_<HH-MM-SS>"
+}
