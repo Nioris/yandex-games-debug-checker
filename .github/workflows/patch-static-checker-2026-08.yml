@@ -1,0 +1,552 @@
+name: Apply Aug 2026 static checker rules
+
+on:
+  push:
+    branches:
+      - feature/static-checker-rules-2026-08
+    paths:
+      - .github/workflows/patch-static-checker-2026-08.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Apply rule re-audit patch
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          
+          from pathlib import Path
+          import csv, io, re, json
+          
+          def read(path):
+              return Path(path).read_text(encoding="utf-8")
+          
+          def write(path, text):
+              Path(path).write_text(text, encoding="utf-8", newline="\n")
+          
+          def replace_once(text, old, new, label):
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected exactly one anchor, found {count}")
+              return text.replace(old, new, 1)
+          
+          def sub_once(text, pattern, repl, label, flags=0):
+              out, n = re.subn(pattern, lambda _m: repl, text, count=1, flags=flags)
+              if n != 1:
+                  raise SystemExit(f"{label}: expected one regex match, found {n}")
+              return out
+          
+          p = Path("debugcheck.js")
+          js = p.read_text(encoding="utf-8")
+          js = js.replace("v1.1.0", "v1.1.1")
+          js = js.replace("version:'1.1.0'", "version:'1.1.1'")
+          
+          old_sound = r"""  {id:'sound',title:'Sound Management',optional:true,icon:'\u{1F50A}',checks:[
+              {name:'visibilitychange',desc:'Mute when tab hidden',
+                test:function(s){return pat(s,/visibilitychange/);}},
+              {name:'AudioContext suspend/resume',desc:'AC.suspend() + AC.resume()',
+                test:function(s){return(pat(s,/\.suspend\s*\(/)||pat(s,/suspendAudio/))&&(pat(s,/\.resume\s*\(/)||pat(s,/resumeAudio/));}},
+            ]},"""
+          
+          new_sound = r"""  {id:'sound',title:'Sound Management',optional:true,icon:'\u{1F50A}',checks:[
+              {name:'Sound stops on focus loss (п.1.3)',desc:'п.1.3 — sound stops on browser/app focus loss; a delay up to 2 seconds is allowed',
+                test:function(s){
+                  var hasAudio=pat(s,/AudioContext|webkitAudioContext|new\s+Audio\s*\(|<audio\b|Howl\s*\(|sound|music/i);
+                  if(!hasAudio)return true;
+                  var hasFocusHook=pat(s,/visibilitychange|pagehide|(?:window|document)\.addEventListener\s*\(\s*['"]blur/i);
+                  var hasStop=pat(s,/\.suspend\s*\(|\.pause\s*\(|muted\s*=\s*true|volume\s*=\s*0|mute(?:All|Audio|Sound)|pause(?:All|Audio|Sound)|stop(?:All|Audio|Sound)/i);
+                  return (hasFocusHook&&hasStop)?true:'warn';
+                },warnText:'Sound code was found, but static analysis could not prove a focus-loss handler that stops or mutes audio. REQ 1.3 now covers minimizing the browser/app, switching to another tab, and the browser tab switcher; stopping within 2 seconds is allowed. Verify all three cases manually.'},
+              {name:'AudioContext suspend/resume',desc:'AC.suspend() + AC.resume()',
+                test:function(s){return(pat(s,/\.suspend\s*\(/)||pat(s,/suspendAudio/))&&(pat(s,/\.resume\s*\(/)||pat(s,/resumeAudio/));}},
+            ]},"""
+          js = replace_once(js, old_sound, new_sound, "sound block")
+          
+          auth_block = r"""  {id:'auth',title:'Authorization',icon:'\u{1F510}',checks:[
+              {name:'No third-party auth markers (п.1.2)',desc:'п.1.2 — only Yandex ID authorization is allowed; third-party login must not be required',
+                test:function(s){
+                  var bad=pat(s,/firebase\s*\.\s*auth|signInWithPopup|accounts\.google\.com|google(?:apis)?\.com\/oauth|facebook\.com\/[^\s"']*oauth|vk\.com\/[^\s"']*oauth|discord\.com\/[^\s"']*oauth|auth0|loginWith(?:Google|Facebook|VK|Discord)|OAuthProvider/i);
+                  return bad?'warn':true;
+                },warnText:'Possible third-party authorization code was found. REQ 1.2 allows only Yandex ID authorization requested through the Yandex Games SDK. Remove/disable third-party login in the Yandex build or verify this is a false match.'},
+              {name:'Yandex auth starts from user action (п.1.2.1)',desc:'п.1.2.1 — ysdk.auth.openAuthDialog() is requested only after a deliberate user action',
+                test:function(s){
+                  if(!pat(s,/\.auth\.openAuthDialog\s*\(/))return true;
+                  var directHandler=pat(s,/(?:addEventListener\s*\(\s*['"](?:click|pointerup|pointerdown|touchend)|onclick\s*=)[\s\S]{0,1600}\.auth\.openAuthDialog\s*\(/i);
+                  var namedHandler=pat(s,/function\s+\w*(?:auth|login|signIn)\w*\s*\([^)]*\)\s*\{[\s\S]{0,900}\.auth\.openAuthDialog\s*\(/i);
+                  return (directHandler||namedHandler)?true:'warn';
+                },warnText:'Yandex auth dialog is used, but static analysis could not prove that it is called from a dedicated click/tap action. REQ 1.2.1 forbids automatic authorization prompts on startup. Verify the call is reachable only from an explicit login button.'},
+              {name:'Auth benefits explained (п.1.2.1)',desc:'п.1.2.1 — the authorization offer explains what the player gains',
+                test:function(s){
+                  if(!pat(s,/\.auth\.openAuthDialog\s*\(/))return true;
+                  return {pass:'not_verified',details:'Authorization is present. Static analysis cannot reliably judge whether the visible login offer explains its benefits; verify the copy manually before moderation.'};
+                }},
+              {name:'Guest play available (п.1.2)',desc:'п.1.2 — the game remains usable without authorization',
+                test:function(s){
+                  if(!pat(s,/\.auth\.openAuthDialog\s*\(/))return true;
+                  return {pass:'not_verified',details:'Authorization is present. Verify that declining/skipping Yandex ID still leaves a guest entry or a playable game flow.'};
+                }},
+            ]},
+          """
+          anchor = "  {id:'sound',title:'Sound Management'"
+          if js.count(anchor) != 1:
+              raise SystemExit("auth insertion anchor missing")
+          js = js.replace(anchor, auth_block + anchor, 1)
+          
+          old_keyboard = r"""    {name:'Keyboard via e.code, not e.key (ru-раскладка)',desc:'Управление через e.key==="w" ломается в русской раскладке (там "ц"). Движение — только e.code==="KeyW" (физическая клавиша).',
+                test:function(s){
+                  if(!pat(s,/keydown|keyup/i))return true; // нет клавиатуры → N/A
+                  var badKey = pat(s,/\.key\s*(===?|==)\s*['"][wasd]['"]/i) || pat(s,/case\s*['"][wasd]['"]\s*:/i);
+                  if(!badKey)return true;
+                  var hasCode = pat(s,/\.code\s*(===?|==)\s*['"]Key[WASD]['"]/);
+                  return hasCode ? true : 'warn';
+                },warnText:'Найдено сравнение e.key с "w/a/s/d" без e.code — в русской раскладке управление МЕРТВО (e.key даёт "ц"). Замени на e.code==="KeyW" и т.д. (физические клавиши, любая раскладка) + продублируй стрелками.'},"""
+          
+          new_keyboard = r"""    {name:'Keyboard control independent of layout (п.1.6.2.4)',desc:'п.1.6.2.4 — desktop gameplay controls must not depend on the active keyboard layout; physical letter controls should use KeyboardEvent.code.',
+                test:function(s){
+                  if(!pat(s,/keydown|keyup/i))return true;
+                  var badKey = pat(s,/\.key\s*(===?|==)\s*['"][wasdqe]['"]/i) || pat(s,/case\s*['"][wasdqe]['"]\s*:/i);
+                  if(!badKey)return true;
+                  var hasCode = pat(s,/\.code\s*(===?|==)\s*['"]Key[WASDQE]['"]/);
+                  return hasCode ? true : 'warn';
+                },warnText:'Letter controls appear to rely on KeyboardEvent.key (for example W/A/S/D). REQ 1.6.2.4 now explicitly requires desktop controls to work regardless of keyboard layout. Prefer KeyboardEvent.code (KeyW/KeyA/...) for physical controls and keep Arrow* keys where appropriate.'},"""
+          js = replace_once(js, old_keyboard, new_keyboard, "keyboard block")
+          
+          js = replace_once(
+              js,
+              "    {name:'Нет debug-инструментов в UI (п.1.15)',desc:'Поля сида, выбор поведения ИИ, скорость хода, «Заново», панели замеров в релизной сборке = игра выглядит незавершённой.',",
+              "    {name:'Нет debug-инструментов в UI (п.1.15)',desc:'Поля сида, выбор поведения ИИ, скорость хода и панели замеров в релизной сборке могут показывать незавершённость игры.',",
+              "debug-tools description",
+          )
+          js = replace_once(
+              js,
+              r"if (pat(s,/>\s*(Заново|Reset seed|Подсказка: (вкл|выкл))\s*</i)) hits++;",
+              r"if (pat(s,/>\s*(Reset seed|Подсказка: (вкл|выкл))\s*</i)) hits++;",
+              "debug-tools restart false positive",
+          )
+          
+          old_wip = r"""    {name:'Game looks finished, not WIP (п.1.15)',desc:'No "in development / coming soon / TODO / placeholder" text visible in the UI.',
+                test:function(s){
+                  // Scan visible-ish text for dev placeholders. Conservative word list to avoid false hits.
+                  if(pat(s,/coming soon|work in progress|under construction|в разработке|скоро здесь|здесь будет|placeholder text|lorem ipsum|тут будет|TODO:.{0,40}<\//i)) return 'warn';
+                  return true;
+                },warnText:'The build shows development/placeholder text ("coming soon / в разработке / lorem ipsum / здесь будет"). Yandex rejects games that look unfinished (п.1.15). Remove placeholder copy and stub screens.'},"""
+          new_wip = r"""    {name:'Game looks finished, not WIP (п.1.15)',desc:'Flags obvious development/placeholder UI. A clean static scan cannot prove that all texts, graphics, controls and mechanics are complete.',
+                test:function(s){
+                  if(pat(s,/coming soon|work in progress|under construction|в разработке|скоро здесь|здесь будет|placeholder text|lorem ipsum|тут будет|TODO:.{0,40}<\//i)) return 'warn';
+                  return {pass:'not_verified',details:'No obvious WIP placeholder text was found, but REQ 1.15 now explicitly requires the whole game to be finished: texts, graphics, controls and gameplay mechanics. Review the complete build manually.'};
+                },warnText:'The build shows development/placeholder text ("coming soon / в разработке / lorem ipsum / здесь будет"). REQ 1.15 requires a finished game with complete texts, graphics, controls and mechanics. Remove placeholder copy and stub screens.'},"""
+          js = replace_once(js, old_wip, new_wip, "WIP block")
+          
+          canvas_pattern = r"""    \{name:'Canvas resizes on orientation change \(п\.1\.6\.1\.3/1\.10\.1\)',desc:'A <canvas>/WebGL game must re-fit on orientationchange \+ fullscreenchange, not only window resize — else it deforms / clips on mobile rotate & fullscreen-exit',
+                test:function\(s\)\{.*?
+                \},warnText:'Canvas game binds window "resize" but not orientationchange/fullscreenchange\. On mobile, rotating or exiting fullscreen may not fire resize in time → the scene clips \(п\.1\.10\.1\) or deforms \(п\.1\.6\.1\.3\)\. Add: window\.addEventListener\("orientationchange", resize\) and a fullscreenchange handler \(or a ResizeObserver on the canvas container\)\.'\},"""
+          canvas_repl = r"""    {name:'Canvas adapts to resize/orientation (п.1.10)',desc:'п.1.10 — the game must remain correctly displayed after window resize and screen rotation.',
+                test:function(s){
+                  if(!pat(s,/<canvas|getContext\s*\(\s*("|')(webgl|2d)|THREE\.|renderer\.setSize/i))return true;
+                  var adaptive = pat(s,/addEventListener\s*\(\s*("|')(resize|orientationchange|fullscreenchange)/i)
+                              || pat(s,/screen\.orientation|ResizeObserver|visualViewport/i)
+                              || pat(s,/canvas[^{}]{0,220}(?:width|height)\s*:\s*(?:100%|100vw|100vh)/i)
+                              || pat(s,/renderer\.setSize\s*\(\s*(?:window\.)?innerWidth/i);
+                  return adaptive ? true : 'warn';
+                },warnText:'Canvas/WebGL content was found, but no clear adaptive resize/orientation handling was detected. REQ 1.10 now explicitly covers both window resizing and screen rotation. Verify portrait↔landscape and desktop resize without clipping, overlap, page scroll or broken canvas sizing.'},
+              {name:'Progress preserved after orientation change (п.1.9)',desc:'п.1.9 — on mobile, meaningful game progress must not be lost when device orientation changes.',
+                test:function(s){
+                  var mobile=pat(s,/orientationchange|screen\.orientation|visualViewport|touchstart|viewport-fit|user-scalable|maximum-scale/i);
+                  if(!mobile)return true;
+                  return {pass:'not_verified',details:'Static analysis cannot prove that the exact in-game state survives portrait↔landscape rotation. Make meaningful progress, rotate the device, and verify that state/progress is preserved.'};
+                }}"""
+          js = sub_once(js, canvas_pattern, canvas_repl, "canvas/orientation block", flags=re.S)
+          
+          monet_anchor = "    {name:'No external ad networks',"
+          monet_block = r"""    {name:'Monetization present or explicitly waived (п.1.12)',desc:'п.1.12 — the game has Yandex ads or in-app purchases, unless monetization is intentionally disabled and stated in the Draft developer comment.',
+                test:function(s){
+                  var hasMonetization=pat(s,/showFullscreenAdv|showRewardedVideo|StickyAdv|BannerAdv|getPayments\s*\(|purchase\s*\(|getCatalog\s*\(/i);
+                  if(hasMonetization)return true;
+                  return {pass:'not_verified',details:'No ad/IAP markers were found in the scanned game source. This can be valid under REQ 1.12 only when monetization is intentionally disabled and that decision is written in the Draft developer comment.'};
+                }},
+          """
+          if js.count(monet_anchor) != 1:
+              raise SystemExit("monetization insertion anchor missing")
+          js = js.replace(monet_anchor, monet_block + monet_anchor, 1)
+          
+          fullscreen_pattern = r"""    // Patch showFullscreenAdv
+              if\(sdk\.adv&&sdk\.adv\.showFullscreenAdv\)\{.*?
+              \}
+              // Patch showRewardedVideo \(v2\.4\)"""
+          fullscreen_repl = r"""    // Patch showFullscreenAdv. Record both SDK-call timing and, when the game
+              // provides callbacks.onOpen, the actual ad-open callback timing.
+              if(sdk.adv&&sdk.adv.showFullscreenAdv){
+                var _f=sdk.adv.showFullscreenAdv;
+                sdk.adv.showFullscreenAdv=function(cfg){
+                  var now=performance.now();
+                  var gestureDelta=TIMING.lastUserGesture?(now-TIMING.lastUserGesture):Infinity;
+                  var rec={type:'interstitial',time:now,gestureDelta:gestureDelta};
+                  TIMING.adCalls.push(rec);
+                  if(!TIMING.firstInterstitial)TIMING.record('firstInterstitial');
+                  try{
+                    if(cfg&&cfg.callbacks){
+                      var _onOpen=cfg.callbacks.onOpen;
+                      cfg.callbacks.onOpen=function(){
+                        var opened=performance.now();
+                        rec.openTime=opened;
+                        rec.openDelayFromCall=opened-now;
+                        rec.openDelayFromGesture=TIMING.lastUserGesture?(opened-TIMING.lastUserGesture):Infinity;
+                        if(typeof _onOpen==='function')return _onOpen.apply(this,arguments);
+                      };
+                    }
+                  }catch(_adPatchErr){}
+                  if(!TIMING.firstUserClick||gestureDelta>330){
+                    TIMING.log.push({event:'AD_SDK_CALL_CONTEXT_RISK',time:now,gestureDelta:Math.round(gestureDelta),warning:'showFullscreenAdv SDK call was not close to a recent user gesture. This is only a placement-context signal; actual ad-start delay is measured from onOpen when available.'});
+                    console.warn('[DBG] showFullscreenAdv SDK call is '+Math.round(gestureDelta)+'ms after the last user gesture — review REQ-4.4 placement context; timer ads can be valid in long real-time gameplay');
+                  }
+                  return _f.apply(this,arguments);
+                };
+              }
+              // Patch showRewardedVideo (v2.4)"""
+          js = sub_once(js, fullscreen_pattern, fullscreen_repl, "fullscreen runtime wrapper", flags=re.S)
+          
+          ad_check_pattern = r"""    \{name:'Interstitial placement context \(REQ-4\.4\)',desc:'Gesture-triggered ads should start within 0\.33s; long real-time levels may use timer ads with warning \+ pause',
+                test:function\(\)\{.*?
+                \},warnText:'No interstitial observed, or placement needs context review\. Under REQ-4\.4, 0\.33s applies to gesture-triggered ads; timer ads may be valid in long real-time levels when gameplay is paused and a 2-second warning is shown\.',
+                failText:'Interstitial placement needs manual REQ-4\.4 review\. Check RT\._adWithoutGesture'\},"""
+          ad_check_repl = r"""    {name:'Interstitial start delay (REQ-4.4)',desc:'When callbacks.onOpen is observable, measure the real ad-open callback against the triggering user action; the documented limit is 0.33s.',
+                test:function(){
+                  if(!TIMING.adCalls||TIMING.adCalls.length===0)return {pass:'not_verified',details:'No interstitial observed in this session'};
+                  var calls=TIMING.adCalls.filter(function(c){return c.type==='interstitial';});
+                  var measured=calls.filter(function(c){return Number.isFinite(c.openDelayFromGesture);});
+                  if(measured.length===0)return {pass:'not_verified',details:'Interstitial SDK call observed, but callbacks.onOpen was not observable, so the actual ad-start delay could not be measured.'};
+                  var bad=measured.filter(function(c){return c.openDelayFromGesture>330;});
+                  if(bad.length===0)return true;
+                  RT._adStartDelayRisk=bad;
+                  return 'warn';
+                },warnText:'Observed interstitial onOpen more than 0.33s after the triggering user action in this run. Yandex recommends checking the delay on the usual device, in incognito, and on another device before concluding it is reproducible. Also verify the ad appears only at a valid logical pause.'},"""
+          js = sub_once(js, ad_check_pattern, ad_check_repl, "REQ-4.4 runtime check", flags=re.S)
+          
+          p.write_text(js, encoding="utf-8", newline="\n")
+          
+          # checks.csv
+          csv_path = Path("checks.csv")
+          csv_text = csv_path.read_text(encoding="utf-8")
+          reader = csv.DictReader(io.StringIO(csv_text))
+          fieldnames = reader.fieldnames
+          rows = list(reader)
+          by_check = {r["check"]: r for r in rows}
+          
+          def rename_row(old, new, requirement=None, classification=None, description=None):
+              if old not in by_check:
+                  raise SystemExit(f"checks.csv missing row: {old}")
+              r = by_check.pop(old)
+              r["check"] = new
+              if requirement is not None: r["requirement"] = requirement
+              if classification is not None: r["classification"] = classification
+              if description is not None: r["description"] = description
+              by_check[new] = r
+          
+          rename_row("visibilitychange", "Sound stops on focus loss (п.1.3)", "1.3", "requirement",
+                     "Static evidence for focus-loss handler plus audio stop/mute; manually verify all focus-loss cases and the allowed 2s delay.")
+          rename_row("Keyboard via e.code, not e.key (ru-раскладка)", "Keyboard control independent of layout (п.1.6.2.4)", "1.6.2.4", "requirement",
+                     "Letter-based desktop controls should use physical KeyboardEvent.code so controls do not depend on keyboard layout.")
+          rename_row("Canvas resizes on orientation change (п.1.6.1.3/1.10.1)", "Canvas adapts to resize/orientation (п.1.10)", "1.10", "requirement",
+                     "Canvas/WebGL layout has adaptive resize/orientation handling; verify rotation and resize visually.")
+          rename_row("Interstitial placement context (REQ-4.4)", "Interstitial start delay (REQ-4.4)", "4.4", "requirement",
+                     "When callbacks.onOpen is observable, measures actual ad-open timing from the triggering user action against the 0.33s guidance.")
+          
+          if "Game looks finished, not WIP (п.1.15)" in by_check:
+              by_check["Game looks finished, not WIP (п.1.15)"]["description"] = (
+                  "Flags obvious WIP/placeholder UI; otherwise returns NOT VERIFIED because static analysis cannot prove completeness of texts, graphics, controls and mechanics."
+              )
+          
+          new_rows = [
+              {"section":"Authorization","type":"static","check":"No third-party auth markers (п.1.2)","requirement":"1.2","classification":"requirement","description":"Warns on common third-party auth/OAuth markers; only Yandex ID auth is allowed."},
+              {"section":"Authorization","type":"static","check":"Yandex auth starts from user action (п.1.2.1)","requirement":"1.2.1","classification":"requirement","description":"Warns when ysdk.auth.openAuthDialog() cannot be tied to an explicit click/tap handler."},
+              {"section":"Authorization","type":"static","check":"Auth benefits explained (п.1.2.1)","requirement":"1.2.1","classification":"requirement","description":"Returns NOT VERIFIED when auth exists; visible benefit copy requires manual review."},
+              {"section":"Authorization","type":"static","check":"Guest play available (п.1.2)","requirement":"1.2","classification":"requirement","description":"Returns NOT VERIFIED when auth exists; verify the game remains usable without login."},
+              {"section":"Quality","type":"static","check":"Progress preserved after orientation change (п.1.9)","requirement":"1.9","classification":"requirement","description":"Mobile orientation progress cannot be proven statically; requires a manual rotate-after-progress test."},
+              {"section":"Quality","type":"static","check":"Monetization present or explicitly waived (п.1.12)","requirement":"1.12","classification":"requirement","description":"PASS when ads/IAP markers exist; otherwise NOT VERIFIED because an explicit no-monetization developer comment is also valid."},
+          ]
+          existing_names = {r["check"] for r in rows}
+          for nr in new_rows:
+              if nr["check"] in existing_names:
+                  raise SystemExit(f"new CSV row already exists: {nr['check']}")
+          
+          rebuilt = []
+          auth_inserted = False
+          for r in rows:
+              rebuilt.append(r)
+              if r["check"] == "LoadingAPI.ready()" and not auth_inserted:
+                  rebuilt.extend(new_rows[:4])
+                  auth_inserted = True
+              if r["check"] == "Canvas adapts to resize/orientation (п.1.10)":
+                  rebuilt.append(new_rows[4])
+              if r["check"] == "Progress saved before ad (п.4.2)":
+                  rebuilt.append(new_rows[5])
+          rows = rebuilt
+          
+          buf = io.StringIO(newline="")
+          writer = csv.DictWriter(buf, fieldnames=fieldnames, lineterminator="\n")
+          writer.writeheader()
+          writer.writerows(rows)
+          csv_path.write_text(buf.getvalue(), encoding="utf-8", newline="\n")
+          
+          md = [
+              "# Check catalog",
+              "",
+              f"This public release contains **{len(rows)} executable checks**. The catalog is generated from `checks.csv`.",
+              "",
+              "Classification meanings: `requirement` = tied to a published Yandex Games requirement; `recommendation` = tied to section 6 or another explicit recommendation; `heuristic` = best-effort engineering signal. The checker itself is unofficial.",
+              "",
+              "| Section | Type | Check | Requirement | Class |",
+              "|---|---|---|---|---|",
+          ]
+          for r in rows:
+              req = r["requirement"] or "—"
+              md.append(f"| {r['section']} | {r['type']} | {r['check']} | {req} | {r['classification']} |")
+          write("docs/checks.md", "\n".join(md) + "\n")
+          
+          t = read("tests/static-checks.mjs")
+          t = t.replace("assert.equal(all.length, 93, 'public release check count');",
+                        "assert.equal(all.length, 99, 'public release check count');")
+          anchor_test = "assert.equal(get('LoadingAPI.ready()').test('ysdk.features.LoadingAPI.ready()'), true);\n"
+          extra_tests = r"""assert.equal(get('Sound stops on focus loss (п.1.3)').test("const a=new AudioContext();document.addEventListener('visibilitychange',()=>a.suspend());"), true);
+          assert.equal(get('Sound stops on focus loss (п.1.3)').test("const a=new AudioContext();playMusic();"), 'warn');
+          assert.equal(get('No third-party auth markers (п.1.2)').test("firebase.auth().signInWithPopup(provider)"), 'warn');
+          assert.equal(get('No third-party auth markers (п.1.2)').test("ysdk.auth.openAuthDialog()"), true);
+          assert.equal(get('Yandex auth starts from user action (п.1.2.1)').test("button.addEventListener('click',()=>ysdk.auth.openAuthDialog())"), true);
+          assert.equal(get('Yandex auth starts from user action (п.1.2.1)').test("ysdk.auth.openAuthDialog()"), 'warn');
+          assert.equal(get('Auth benefits explained (п.1.2.1)').test("ysdk.auth.openAuthDialog()").pass, 'not_verified');
+          assert.equal(get('Guest play available (п.1.2)').test("ysdk.auth.openAuthDialog()").pass, 'not_verified');
+          assert.equal(get('Keyboard control independent of layout (п.1.6.2.4)').test("addEventListener('keydown',e=>{if(e.key==='w')move()})"), 'warn');
+          assert.equal(get('Keyboard control independent of layout (п.1.6.2.4)').test("addEventListener('keydown',e=>{if(e.code==='KeyW')move()})"), true);
+          assert.equal(get('Progress preserved after orientation change (п.1.9)').test("<meta name='viewport'> window.addEventListener('orientationchange',resize)").pass, 'not_verified');
+          assert.equal(get('Monetization present or explicitly waived (п.1.12)').test("const x=1").pass, 'not_verified');
+          assert.equal(get('Monetization present or explicitly waived (п.1.12)').test("ysdk.adv.showFullscreenAdv({callbacks:{}})"), true);
+          assert.equal(get('Game looks finished, not WIP (п.1.15)').test("<div>Play</div>").pass, 'not_verified');
+          """
+          t = replace_once(t, anchor_test, anchor_test + extra_tests, "static test insertion")
+          write("tests/static-checks.mjs", t)
+          
+          a = read("scripts/audit.mjs")
+          a = a.replace("assert.equal(jsNames.length, 93, 'expected 93 executable checks');",
+                        "assert.equal(jsNames.length, 99, 'expected 99 executable checks');")
+          a = a.replace("assert.equal(csvNames.length,93,'checks.csv row count');",
+                        "assert.equal(csvNames.length,99,'checks.csv row count');")
+          a = a.replace("version:'1.1.0'", "version:'1.1.1'")
+          write("scripts/audit.mjs", a)
+          
+          for path in ["tests/cdp-smoke.mjs", "tests/orc-castle-smoke.mjs"]:
+              write(path, read(path).replace("1.1.0", "1.1.1"))
+          
+          pkg = json.loads(read("package.json"))
+          pkg["version"] = "1.1.1"
+          write("package.json", json.dumps(pkg, ensure_ascii=False, indent=2) + "\n")
+          
+          for path in ["README.md", "README.en.md"]:
+              x = read(path).replace("v1.1.0", "v1.1.1").replace("93 executable checks", "99 executable checks").replace("93 исполняемых проверок", "99 исполняемых проверок")
+              if path == "README.md":
+                  x = x.replace("На момент аудита 11 августа 2026 года использовались:", "Аудит требований обновлён 1 сентября 2026 года. Основные официальные источники:")
+              else:
+                  x = x.replace("The rules were reviewed against the official documentation on 11 August 2026.", "The rules were re-audited against the official documentation on 1 September 2026.")
+              write(path, x)
+          
+          manual = """# Manual pre-submission checklist
+          
+          Use this after the checker reports no unexplained hard failures. Requirements were re-audited on 1 September 2026.
+          
+          - Open the draft with the official Yandex Games debug panel and repeat the startup flow after manually dismissing the platform loader.
+          - Verify `LoadingAPI.ready()` changes at the actual moment the menu/game becomes interactive, including a cold load.
+          - If authorization exists, verify only Yandex ID is offered, the dialog opens only after a dedicated user action, the login offer explains its benefits, and the game remains usable as a guest if the player declines login (REQ 1.2/1.2.1).
+          - Test every language declared in the Draft field, using Yandex language mocks; inspect Canvas/WebGL text manually.
+          - Reload after meaningful progress and confirm the exact state is restored. For mobile games, make progress, rotate portrait↔landscape, and confirm the exact state is still present (REQ 1.9).
+          - Resize the desktop browser and rotate every supported mobile orientation; verify no clipping, overlap, system scroll/swipe-to-refresh or broken canvas layout (REQ 1.10).
+          - If IAP exists, test catalog display, currency/icon, purchase grant, consume flow, reload persistence and cloud save behavior.
+          - Verify monetization under REQ 1.12: the game contains ads or IAP, or—if monetization is intentionally disabled—the Draft developer comment explicitly says so. The startup ad does not count.
+          - If rewarded ads exist, verify the user explicitly chooses the ad and the promised reward is granted once.
+          - Test interstitial placement in the context of the actual game type. For user-action placements, verify the real ad starts without a reproducible delay over 0.33s; Yandex recommends comparing the normal device, incognito and another device. Draft mode uses real platform ads (REQ 4.4).
+          - Verify sound stops on every documented focus-loss case: minimize the browser/app, switch to another tab, and open the browser tab switcher. A stop delay up to 2 seconds is allowed; review the documented platform exceptions (REQ 1.3).
+          - Verify sound and gameplay pause/resume through fullscreen ad callbacks.
+          - Check desktop keyboard gameplay controls under at least two layouts (for example EN and RU); physical letter controls must not depend on the active layout (REQ 1.6.2.4).
+          - Review the full build for REQ 1.15: all texts, graphics, controls and mechanics are complete; no WIP screens, broken controls, placeholder assets or development-only UI remain.
+          - Test supported browsers, mobile/desktop orientations and the platforms declared in the draft.
+          - Verify archive size, `index.html` placement and filename rules outside the browser checker.
+          - In the Draft, verify the current console-only fields separately; as of 28 August 2026 the horizontal video field is mandatory.
+          - Review console errors during startup, gameplay, ads, orientation changes, save/load and repeated sessions.
+          - Review title, description, controls, screenshots, icons, age tag, content and promotional material against the current official requirements.
+          """
+          write("docs/manual-checklist.md", manual)
+          
+          audit_doc = """# Yandex Games requirements re-audit — 2026-09-01
+          
+          This note records how the public checker was adjusted after the August 2026 Yandex Games documentation updates. The checker is unofficial; the linked Yandex documentation remains the source of truth.
+          
+          ## Official changes relevant to the embedded checker
+          
+          - **1.2 / 1.2.1 Authorization** — only Yandex ID authorization is allowed; the authorization dialog must follow a deliberate user action; the offer must explain benefits; the game must remain usable without authorization.
+          - **1.3 Focus/audio** — game sound stops on focus loss. The moderation method covers minimize, another tab and the browser tab switcher; a delay up to two seconds is allowed, with documented platform exceptions.
+          - **1.6.2.4 Keyboard layout** — desktop controls must not depend on the active keyboard layout.
+          - **1.9 Progress** — mobile progress must not be lost when device orientation changes.
+          - **1.10 Display** — the game must remain correctly displayed on window resize and screen rotation.
+          - **1.12 Monetization** — ads or in-app purchases are expected unless the developer explicitly states in the Draft developer comment that monetization is intentionally disabled. The startup ad does not count.
+          - **1.15 Finished state** — all required texts, graphics, controls and gameplay mechanics must be complete.
+          - **4.4 Ad placement/testing** — Yandex documents real-ad testing in prod and draft and a 0.33s maximum delay for applicable user-action placements.
+          
+          ## Checker policy changes
+          
+          The update deliberately avoids turning weak static signals into hard failures.
+          
+          - Third-party authorization markers produce **WARN**, not FAIL.
+          - Authorization benefit text and guest-play availability become **NOT VERIFIED** when auth is present because static source scanning cannot reliably judge the visible flow.
+          - The 1.3 static signal now requires both a focus-loss hook and an audio stop/mute pattern to PASS.
+          - Layout-dependent `KeyboardEvent.key` letter controls are now tied to **REQ 1.6.2.4**.
+          - Orientation progress under 1.9 is explicitly **NOT VERIFIED** and moved to the manual checklist.
+          - Canvas/WebGL resize/orientation handling is mapped to the current **REQ 1.10** wording.
+          - Lack of ads/IAP is **NOT VERIFIED**, not FAIL, because an explicit no-monetization developer comment is valid under 1.12.
+          - The WIP scan under 1.15 only flags obvious placeholders; a clean scan is still **NOT VERIFIED** for overall completeness.
+          - REQ 4.4 now measures `callbacks.onOpen` timing when observable instead of treating the SDK method-call timestamp as proof of actual ad start.
+          
+          ## Console-only August changes
+          
+          Promo scheduling, promo text limits, the CSP tab rename, Draft archive/orientation/title/screenshot field changes, mandatory horizontal video, contract/ULM workflow and payout thresholds are not browser-runtime requirements. They belong in the manual/pre-submit Console checklist rather than being reported as embedded-checker PASS/FAIL.
+          
+          ## Sources
+          
+          - https://yandex.ru/dev/games/doc/ru/concepts/requirements
+          - https://yandex.ru/dev/games/doc/ru/requirements/1/2
+          - https://yandex.ru/dev/games/doc/ru/requirements/1/3
+          - https://yandex.ru/dev/games/doc/ru/requirements/1/9
+          - https://yandex.ru/dev/games/doc/ru/requirements/1/10
+          - https://yandex.ru/dev/games/doc/ru/requirements/1/12
+          - https://yandex.ru/dev/games/doc/ru/requirements/1/15
+          - https://yandex.ru/dev/games/doc/ru/requirements/4/4
+          - https://yandex.ru/dev/games/doc/ru/release-notes
+          """
+          write("docs/audit-2026-09-01.md", audit_doc)
+          
+          ch = read("CHANGELOG.md")
+          entry = """## 1.1.1 — 2026-09-01
+          
+          - Re-audited public checks against the August 2026 Yandex Games documentation updates.
+          - Added conservative checks/reminders for REQ 1.2/1.2.1 authorization, REQ 1.9 orientation progress and REQ 1.12 monetization.
+          - Strengthened REQ 1.3 focus-loss sound detection and mapped keyboard-layout checks to REQ 1.6.2.4.
+          - Updated canvas/orientation handling to current REQ 1.10 wording.
+          - Made REQ 1.15 completeness conservative: obvious WIP is WARN; otherwise overall completeness remains NOT VERIFIED.
+          - Improved REQ 4.4 runtime timing to use the interstitial `onOpen` callback when available instead of equating the SDK call with the actual ad start.
+          
+          """
+          ch = replace_once(ch, "# Changelog\n\n", "# Changelog\n\n" + entry, "changelog header")
+          write("CHANGELOG.md", ch)
+          
+          js2 = read("debugcheck.js")
+          part = js2[js2.index("var CATS="):js2.index("// Node-only export")]
+          js_names = [m.group(1).replace("\\'", "'") for m in re.finditer(r"\{name:'((?:\\'|[^'])*)'", part)]
+          csv_names = [r["check"] for r in rows]
+          if len(js_names) != 99:
+              raise SystemExit(f"expected 99 JS checks after patch, got {len(js_names)}")
+          if sorted(js_names) != sorted(csv_names):
+              missing = sorted(set(js_names) ^ set(csv_names))
+              raise SystemExit(f"JS/CSV catalog mismatch: {missing}")
+          print("patch: PASS — 99 checks and catalog parity")
+          PY
+
+      - name: Run full audit and browser regressions
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run audit | tee /tmp/audit.log
+
+      - name: Sync checked-in demo reports
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          
+          from pathlib import Path
+          import json, re
+          
+          log = Path("/tmp/audit.log").read_text(encoding="utf-8", errors="replace")
+          reports = {}
+          for line in log.splitlines():
+              line = line.strip()
+              if not line.startswith('{"mode"'):
+                  continue
+              try:
+                  obj = json.loads(line)
+              except json.JSONDecodeError:
+                  continue
+              if obj.get("mode") in ("before", "after") and "summary" in obj:
+                  reports[obj["mode"]] = obj
+          
+          if set(reports) != {"before", "after"}:
+              raise SystemExit(f"Could not parse both Orc Castle reports from audit log; got {sorted(reports)}")
+          
+          for mode, obj in reports.items():
+              Path(f"examples/orc-castle/reports/{mode}.json").write_text(
+                  json.dumps(obj, ensure_ascii=False, indent=2) + "\n",
+                  encoding="utf-8"
+              )
+          
+          def js_summary(s):
+              return "{pass:%d,fail:%d,warn:%d,notVerified:%d,score:%s}" % (
+                  s["pass"], s["fail"], s["warn"], s["notVerified"], json.dumps(s["score"])
+              )
+          
+          test_path = Path("tests/example-static.mjs")
+          text = test_path.read_text(encoding="utf-8")
+          text, n1 = re.subn(
+              r"assert\.deepEqual\(beforeReport\.summary,\{[^;]+?\},'before report snapshot'\);",
+              f"assert.deepEqual(beforeReport.summary,{js_summary(reports['before']['summary'])},'before report snapshot');",
+              text, count=1
+          )
+          text, n2 = re.subn(
+              r"assert\.deepEqual\(afterReport\.summary,\{[^;]+?\},'after report snapshot'\);",
+              f"assert.deepEqual(afterReport.summary,{js_summary(reports['after']['summary'])},'after report snapshot');",
+              text, count=1
+          )
+          if n1 != 1 or n2 != 1:
+              raise SystemExit(f"Failed to update example-static snapshots: {n1}, {n2}")
+          test_path.write_text(text, encoding="utf-8", newline="\n")
+          
+          for readme_path in ["README.md", "README.en.md"]:
+              p = Path(readme_path)
+              x = p.read_text(encoding="utf-8")
+              b = reports["before"]["summary"]
+              a = reports["after"]["summary"]
+              x, nb = re.subn(
+                  r"\| Before \| \d+ \| \d+ \| \d+ \| \d+ \| \d+% \|",
+                  f"| Before | {b['pass']} | {b['fail']} | {b['warn']} | {b['notVerified']} | {b['score']} |",
+                  x, count=1
+              )
+              x, na = re.subn(
+                  r"\| After \| \d+ \| \d+ \| \d+ \| \d+ \| \d+% \|",
+                  f"| After | {a['pass']} | {a['fail']} | {a['warn']} | {a['notVerified']} | {a['score']} |",
+                  x, count=1
+              )
+              if nb != 1 or na != 1:
+                  raise SystemExit(f"{readme_path}: demo table update failed: {nb}, {na}")
+              p.write_text(x, encoding="utf-8", newline="\n")
+          
+          print("report-sync:", {k:v["summary"] for k,v in reports.items()})
+          PY
+          npm test
+          node scripts/build-pages.mjs
+          git diff --check
+
+      - name: Commit verified changes
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- debugcheck.js checks.csv package.json CHANGELOG.md README.md README.en.md docs/checks.md docs/manual-checklist.md docs/audit-2026-09-01.md tests/static-checks.mjs tests/cdp-smoke.mjs tests/orc-castle-smoke.mjs tests/example-static.mjs scripts/audit.mjs examples/orc-castle/reports/before.json examples/orc-castle/reports/after.json site
+          git status --short
+          git commit -m "Update checker for Aug 2026 Yandex rules"
+          git push origin HEAD:feature/static-checker-rules-2026-08
